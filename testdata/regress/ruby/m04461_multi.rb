@@ -1,0 +1,1 @@
+foo.new(  select: <<-TEXT,    heredoc content,  TEXT  conditions :<<-TEXT    heredoc content  TEXT){  select: <<-TEXT,    heredoc content,  TEXT  conditions: <<-TEXT    heredoc content  TEXT}[  <<-TEXT,  a  TEXT  <<-TEXT  b  TEXT]foo[  1,  <<-TEXT  hi  TEXT  ] = 3

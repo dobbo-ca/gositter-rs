@@ -1,0 +1,1 @@
+<?phpif (  true // this is a comment  || false) {}) {}

@@ -1,0 +1,12 @@
+
+/*
+ * Block comments
+ */
+
+/ Comment with asterisks **/
+
+/** Outer block comment */
+
+
+/*! Inner block comment */
+/**/

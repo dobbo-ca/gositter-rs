@@ -1,0 +1,29 @@
+    "operation": "operationValue",
+        "apiVersion": "apiVersionValue",
+        "time": "2004-01-01T01:01:01Z",
+        "fieldsType": "fieldsTypeValue",
+        "fieldsV1": {},
+        "subresource": "subresourceValue"
+      }
+    ]
+  },
+  "spec": {
+    "resource": {
+      "group": "groupValue",
+      "resource": "resourceValue"
+    }
+  },
+  "status": {
+    "conditions": [
+      {
+        "type": "typeValue",
+        "status": "statusValue",
+        "observedGeneration": 3,
+        "lastTransitionTime": "2004-01-01T01:01:01Z",
+        "reason": "reasonValue",
+        "message": "messageValue"
+      }
+    ],
+    "resourceVersion": "resourceVersionValue"
+  }
+}

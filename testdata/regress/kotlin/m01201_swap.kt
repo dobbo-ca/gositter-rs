@@ -1,0 +1,29 @@
+plugins {
+  `kotlin-dsl`
+  `java-gradle-plugin`
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  add("compileOnly", kotlin("gradle-plugin"))
+  add("compileOnly", kotlin("gradle-plugin-api"))
+}
+
+gradlePlugin {
+  plugins {
+    create("build-supprot") {
+      id = "build-support"
+      implementationClass = "BuildSupport"
+    }
+  }
+}
+
+dependencies {
+  implementation(libs.dokka)
+  implementation(libs.kotlin.gradle.plugin)
+  implementation(libs.tapmoc.gradle.plugin)
+  implementation(libs.binary.compatibility.validator.gradle.plugin)
+}

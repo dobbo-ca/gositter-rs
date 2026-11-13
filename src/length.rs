@@ -20,17 +20,17 @@ pub(crate) fn length_is_undefined(l: Length) -> bool {
     l.bytes == 0 && l.extent.column != 0
 }
 
-/// point_add
+/// point_add. Go adds uint32 with wrap.
 pub(crate) fn point_add(a: Point, b: Point) -> Point {
     if b.row > 0 {
         Point {
-            row: a.row + b.row,
+            row: a.row.wrapping_add(b.row),
             column: b.column,
         }
     } else {
         Point {
             row: a.row,
-            column: a.column + b.column,
+            column: a.column.wrapping_add(b.column),
         }
     }
 }
@@ -55,7 +55,7 @@ pub(crate) fn point_sub(a: Point, b: Point) -> Point {
 /// length_add
 pub(crate) fn length_add(a: Length, b: Length) -> Length {
     Length {
-        bytes: a.bytes + b.bytes,
+        bytes: a.bytes.wrapping_add(b.bytes),
         extent: point_add(a.extent, b.extent),
     }
 }

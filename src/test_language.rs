@@ -1,5 +1,6 @@
 //! gositter `testLanguage()` (`subtree_test.go:19-35`) as static tables, plus a small parse
-//! table of three small states for the lookup tests and the fields `key` and `value`.
+//! table of three small states for the lookup tests. Like Go's, it has no fields;
+//! `fields_language()` adds `key` and `value` for the field tests.
 // The subtree, stack and node tests (plan Tasks 8 to 10) use the rest.
 #![allow(dead_code)]
 
@@ -39,14 +40,14 @@ pub(crate) const TABLES: LanguageTables = LanguageTables {
     state_count: 4,
     large_state_count: 1,
     production_id_count: 0,
-    field_count: 2,
+    field_count: 0,
     max_alias_sequence_length: 0,
     parse_table: U16s::new(&PARSE_TABLE),
     small_parse_table: U16s::new(&SMALL_PARSE_TABLE),
     small_parse_table_map: U32s::new(&SMALL_PARSE_TABLE_MAP),
     parse_actions: ParseActions::EMPTY,
     symbol_names: &["end", "a", "ident", "_hidden", "rule", "rule_repeat1"],
-    field_names: &["", "key", "value"],
+    field_names: &[""],
     field_map_slices: MapSlices::EMPTY,
     field_map_entries: FieldMapEntries::EMPTY,
     symbol_metadata: SymbolMetadatas::new(&SYMBOL_METADATA),
@@ -80,4 +81,14 @@ pub(crate) const TABLES: LanguageTables = LanguageTables {
 /// A fresh test language, so that no test sees another test's KindMask names.
 pub(crate) fn test_language() -> &'static Language {
     Box::leak(Box::new(Language::new(TABLES)))
+}
+
+/// The test language with the fields `key` and `value` (no field map: no production has a
+/// field), for the field-name tests.
+pub(crate) fn fields_language() -> &'static Language {
+    Box::leak(Box::new(Language::new(LanguageTables {
+        field_count: 2,
+        field_names: &["", "key", "value"],
+        ..TABLES
+    })))
 }

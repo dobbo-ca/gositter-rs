@@ -42,6 +42,24 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
 FROM scratch AS gen-out
 COPY --from=gen /out /
 
+# The table oracle (plan Task 6): gositter v0.2.0's own generated Go tables, which gositter's check
+# tool verified against C, written one file per Language field by gengrammar/oracle/tables. Pure
+# Go (CGO_ENABLED=0); `go mod download` is checked against go.sum, and the build is -mod=readonly.
+FROM golang:1.27-bookworm AS grammar-oracle
+ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOFLAGS=-mod=readonly
+WORKDIR /oracle
+COPY gengrammar/oracle/ ./
+RUN test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go mod download && go vet ./... && go build -o /usr/local/bin/tables ./tables \
+    && tables /oracle-out
+
+# Our tables against the oracle, field by field, for all 21 grammars. gengrammar is the binary the
+# gen stage built (its own target dir, no shared cache).
+FROM gen AS grammar-parity
+COPY --from=grammar-oracle /oracle-out /oracle-out
+RUN /gen-target/release/gengrammar --lock grammars/grammars.lock --src /parsers --oracle /oracle-out
+
 # The checks run in the build, so a red check fails the build; a rerun of the same source is a
 # BuildKit cache hit.
 FROM src AS ci

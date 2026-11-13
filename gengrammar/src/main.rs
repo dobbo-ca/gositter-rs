@@ -1,4 +1,7 @@
 //! gengrammar --lock <file> --src <dir> --out <dir> [--update] [-j N] [name ...]
+//! gengrammar --lock <file> --src <dir> --oracle <dir> [name ...]
+//!
+//! The second form compares the tables with the dump of gositter's own Go tables (`oracle.rs`).
 //!
 //! `--src` holds the grammar modules in the Go module cache layout
 //! (`<module>@<version>/<dir>/parser.c`), as the `gen-src` stage of ci/Dockerfile unpacks them.
@@ -11,6 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use gengrammar::blob::{check_language, write_blob};
 use gengrammar::lock::{LockEntry, check_sum, parse_lock};
+use gengrammar::oracle::check_grammar;
 use gengrammar::parse::parse_grammar;
 use gengrammar::rust::{header, mod_rs};
 
@@ -18,6 +22,7 @@ struct Args {
     lock: String,
     src: PathBuf,
     out: PathBuf,
+    oracle: Option<PathBuf>,
     update: bool,
     jobs: usize,
     names: Vec<String>,
@@ -34,7 +39,7 @@ fn args() -> Args {
         None,
         PathBuf::from("grammars"),
     );
-    let (mut update, mut jobs, mut names) = (false, 4, Vec::new());
+    let (mut update, mut jobs, mut names, mut oracle) = (false, 4, Vec::new(), None);
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         let mut val = |name: &str| {
@@ -45,6 +50,7 @@ fn args() -> Args {
             "--lock" => lock = val("--lock"),
             "--src" => src = Some(PathBuf::from(val("--src"))),
             "--out" => out = PathBuf::from(val("--out")),
+            "--oracle" => oracle = Some(PathBuf::from(val("--oracle"))),
             "--update" => update = true,
             "-j" => {
                 jobs = val("-j")
@@ -60,6 +66,7 @@ fn args() -> Args {
         lock,
         src,
         out,
+        oracle,
         update,
         jobs: jobs.max(1),
         names,
@@ -100,6 +107,19 @@ fn main() {
         .iter()
         .filter(|(_, l)| a.names.is_empty() || a.names.contains(&l.pkg))
         .collect();
+    if let Some(o) = &a.oracle {
+        let mut failed = false;
+        for (_, l) in &todo {
+            match check_grammar(l, &a.src, o) {
+                Ok(()) => println!("ok {}", l.pkg),
+                Err(e) => {
+                    eprintln!("gengrammar: {e}");
+                    failed = true;
+                }
+            }
+        }
+        exit(i32::from(failed));
+    }
     let mut lines: Vec<String> = text.split('\n').map(String::from).collect();
     let next = AtomicUsize::new(0);
     let done = Mutex::new(Vec::new());

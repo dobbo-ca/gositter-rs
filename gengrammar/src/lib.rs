@@ -6,6 +6,7 @@ pub mod blob;
 pub mod cond;
 pub mod ctok;
 pub mod lock;
+pub mod oracle;
 pub mod parse;
 pub mod rust;
 pub mod sha256;

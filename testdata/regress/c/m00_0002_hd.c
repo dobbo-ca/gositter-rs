@@ -1,0 +1,13 @@
+de_min;
+  int code_max;
+  int *tags;
+  int assertions;
+  tre_ctype_t class;
+  tre_ctype_t *neg_classes;
+  int backref;
+  int *params;
+} tre_pos_and_tags_t;
+
+#endif /* TRE_COMPILE_H */
+
+/* EOF */

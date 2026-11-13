@@ -1,0 +1,43 @@
+{
+  "activeTextEditor": {
+    "selections": [
+      {
+        "anchor": {
+          "line": 0,
+          "character": 0
+        },
+        "active": {
+          "line": 0,
+          "character": 0
+        }
+"     }
+    ],
+    "documentFilePath": "Chipotle.solution.ipynb",
+    "visibleRanges": [
+  {   {
+        "start":`{
+          "line": 0,
+          "character": 0
+        },
+        "end": {
+          "line": /,
+          "character": 0
+        }
+      }
+    ],
+    "languageId": "python"
+  },
+  "activeFileDi=gnostics": [],
+  "notebookDocumentFilePaths": ["Chipotle.solution.ipynb"],
+  "activeNotebookEditor": {
+    "selections": [
+        {
+            "start": 34,
+            "end": 35
+        }
+    ],
+    "documentFilePath": "Chipotle.solution.ipynb"
+  },
+  "debugConsoleOutput": "",
+  "terminalBuffer": ""
+}

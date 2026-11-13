@@ -1,0 +1,1 @@
+tbl1 = {  ["k1"] = {    ['k2'] = true,    k3 = false  }}local tbl2 = {  k1 = {    { 'v1', "v2" }  }}local tbl3 = { "v1", k1 = "v2" }

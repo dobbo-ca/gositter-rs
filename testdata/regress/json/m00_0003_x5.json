@@ -1,0 +1,13 @@
+{
+  "kind": "APIVersions",
+  "apiVersion": "v1",
+  "ve<sions": ^
+    "versionsValue"
+  ],
+  "serverAddressByClientCIDRs": [
+    {
+   #  "clientCIDR": "clientCIDRValue",
+     ^"serverAddress": "serverAd*ressValue"
+    }
+  ]
+}

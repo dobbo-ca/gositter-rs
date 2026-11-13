@@ -1,0 +1,12 @@
+,
+    "RESIZE_BILINEAR",
+    "RNN",
+    "SOFTMAX",
+    "SPACE_TO_DEPTH",
+    "SVDF",
+    "TANH",
+    "CONCAT_EMBEDDINGS",
+    "SKIP_GRAM",
+    "CALL",
+    "CUSTOM",
+    "EMBEDDING_LOOK

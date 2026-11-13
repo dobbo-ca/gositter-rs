@@ -1,0 +1,7 @@
+atures/inlay_hints.zig");
+    _ = @import("lsp_features/references.zig");
+    _ = @import("lsp_features/selection_range.zig");
+    _ = @import("lsp_features/semantic_tokens.zig");
+    _ = @import("lsp_features/signature_help.zig");
+    _ = @import("lsp_features/workspace_symbols.zig");
+}

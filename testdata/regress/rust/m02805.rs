@@ -1,0 +1,5 @@
+ doc (but with a bang at the beginning )*/
+
+/*   - Only a comment */
+/**  - Outer block doc (exactly) 2 asterisks */
+/** - Only a comment */

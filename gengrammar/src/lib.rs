@@ -2,5 +2,8 @@
 //! checks its sha256 against `grammars.lock`, and writes the tables of one grammar. No C
 //! compiler is involved. The binary in `main.rs` is the command line over this library.
 
+pub mod cond;
+pub mod ctok;
 pub mod lock;
+pub mod parse;
 pub mod sha256;

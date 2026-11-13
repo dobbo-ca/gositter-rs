@@ -614,39 +614,6 @@ mod tests {
     }
 
     /// The definition of advance_run: advance, one character at a time.
-    fn advance_run_ref(l: &mut Lexer<'_>, set: &[bool; 256], skip: bool) {
-        while (l.lookahead as u32) < 128 && set[l.lookahead as usize] && l.state.has_chunk {
-            l.advance(skip);
-        }
-    }
-
-    /// Everything a lex function or the parser can see of a lexer.
-    fn lexer_snapshot(l: &mut Lexer<'_>) -> [u32; 16] {
-        let b = |v: bool| v as u32;
-        let s = &l.state;
-        let mut out = [
-            l.lookahead as u32,
-            s.lookahead_size,
-            b(s.has_chunk),
-            0,
-            s.current_position.bytes,
-            s.current_position.extent.row,
-            s.current_position.extent.column,
-            s.token_start_position.bytes,
-            s.token_start_position.extent.row,
-            s.token_start_position.extent.column,
-            s.column_data.value,
-            b(s.column_data.valid),
-            s.chunk_start,
-            s.chunk_size,
-            0,
-            0,
-        ];
-        out[3] = b(l.eof());
-        out[14] = l.get_column();
-        out
-    }
-
     fn check_advance_run(
         src: &[u8],
         set: &'static [bool; 256],
@@ -654,24 +621,35 @@ mod tests {
         skip: bool,
         column_valid: bool,
     ) {
-        let make = || {
-            let mut l = new_test_lexer(src);
-            while l.state.current_position.bytes < start as u32 && l.state.has_chunk {
-                l.advance(false);
-            }
-            if !column_valid {
-                l.invalidate_column_data();
-            }
-            l
-        };
-        let (mut a, mut b) = (make(), make());
-        advance_run_ref(&mut a, set, skip);
-        b.advance_run(set, skip);
+        let (got, want) = crate::export::advance_run_snapshots(src, set, start, skip, column_valid);
         assert_eq!(
-            lexer_snapshot(&mut b),
-            lexer_snapshot(&mut a),
+            got, want,
             "src {src:?} start {start} skip {skip} column_valid {column_valid}"
         );
+    }
+
+    /// The hook of the fuzz target `advance_run` (Go `FuzzAdvanceRun`), on its Go seed and on
+    /// every set and column mode.
+    #[test]
+    fn advance_run_fuzz_hook() {
+        assert!(crate::advance_run_matches_reference(
+            b"ab cd\n  ef\xc3\xa9 \"g\"\n",
+            0,
+            3,
+            true
+        ));
+        for which in 0..8u8 {
+            for start in 0..8u8 {
+                for skip in [false, true] {
+                    assert!(crate::advance_run_matches_reference(
+                        b"a b\n\t\"c\xc3\xa9\xff",
+                        which,
+                        start,
+                        skip
+                    ));
+                }
+            }
+        }
     }
 
     fn set_of(f: impl Fn(u8) -> bool) -> &'static [bool; 256] {

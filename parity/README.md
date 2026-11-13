@@ -121,7 +121,7 @@ it runs green in the `test` job.
 |---|---|---|---|---|
 | example_test.go | `Example` | `example_python` | `tests/example.rs` | ported, ignored until its grammar |
 | parser_test.go | `BenchmarkParseJSON` | `gsdump bench json_2000` | `examples/gsdump.rs` | to port (Task 14) |
-| lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | `advance_run_random` passing; fuzz target in Task 13 |
+| lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | `advance_run_random` and `advance_run_fuzz_hook` passing; fuzz target `advance_run` in `.github/workflows/fuzz.yml` |
 
 ## Grammar tests
 

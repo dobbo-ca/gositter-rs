@@ -110,6 +110,9 @@ FROM src AS ci
 COPY --from=gen-check /ok /tmp/gen-ok
 # fmt reads only the sources: no cache mount, so it never waits for one.
 RUN cargo fmt --all --check
+# The hand-written scanners sit in generated grammar modules that cargo fmt skips (#[rustfmt::skip]),
+# so check them directly.
+RUN rustfmt --check --edition 2024 grammars/*/scanner.rs
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target,sharing=private \
     sh ci/fresh.sh && cargo clippy --locked --workspace --all-targets -- -D warnings

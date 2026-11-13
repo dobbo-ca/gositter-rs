@@ -34,9 +34,9 @@ Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 
 | Source | Tests | Ported | N/A-Go | Passing |
 |---|---|---|---|---|
-| gositter root package `Test` funcs | 53 | 48 | 5 | 29 |
+| gositter root package `Test` funcs | 53 | 48 | 5 | 33 |
 | gositter `Example` / `Benchmark` / `Fuzz` | 3 | 2 | 0 | 1 |
-| C goldens (`testdata/regress`) | 1,423 | 1,423 | 0 | 0 |
+| C goldens (`testdata/regress`) | 1,423 | 1,423 | 0 | 50 (json) |
 | gositter `cmd/gengrammar` and `grammars/internal/cchar` tests | 3 | 3 | 0 | 3 |
 | gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (62 compiled, 1 compiled out) | 63 | 63 | 0 | 42 |
 
@@ -92,10 +92,10 @@ it runs green in the `test` job.
 | stack_test.go | `TestStackErrorDiscontinuityAndSummary` | `stack_error_discontinuity_and_summary` | `src/stack.rs` | passing |
 | stack_test.go | `TestStackClearReleases` | `stack_clear_releases` | `src/stack.rs` | passing |
 | dense_test.go | `TestDenseLookup` | `dense_lookup` | `tests/dense.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestParseJSONString` | `parse_json_string` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestNodeAPI` | `node_api` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestParserReuseAndNoLanguage` | `parser_reuse_and_no_language` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestLoggerMessages` | `logger_messages` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestParseJSONString` | `parse_json_string` | `tests/parser.rs` | passing |
+| parser_test.go | `TestNodeAPI` | `node_api` | `tests/parser.rs` | passing |
+| parser_test.go | `TestParserReuseAndNoLanguage` | `parser_reuse_and_no_language` | `tests/parser.rs` | passing |
+| parser_test.go | `TestLoggerMessages` | `logger_messages` | `tests/parser.rs` | passing |
 | parser_test.go | `TestParseAllocs` | — | — | N/A-Go: AllocsPerRun |
 | parser_test.go | `TestErrorRecoveryMemory` | `error_recovery_memory` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
 | parser_test.go | `TestHeapChunksShared` | `heap_chunks_reused` | `tests/parser.rs` | ported, ignored until its grammar; shared-pool half N/A-Go |
@@ -167,10 +167,10 @@ tests.
 
 | Rust test | File | Status |
 |---|---|---|
-| `regress_json`, `error_recovery_memory_json`, `summaries_json`, `children_wide_json`, `dense_lookup_json` | `tests/` | json halves of the Go tests above, ignored until json is wired (gositter-rs-2f0.11) |
-| `parse_budget_boundary_json`, `parse_budget_count_stable_json`, `parse_budget_stops_json` | `tests/parser.rs` | json twins of the budget tests (plan Task 11), ignored (gositter-rs-2f0.11) |
-| `log_lines_cut_at_1023`, `kind_mask_after_parse` | `tests/parser.rs` | plan Task 11 and Review Focus 1, ignored (gositter-rs-2f0.11) |
-| `graphify_api` | `tests/graphify_api.rs` | graphify's 20 adapter methods, ignored (gositter-rs-2f0.11) |
+| `regress_json`, `error_recovery_memory_json`, `summaries_json`, `children_wide_json`, `dense_lookup_json` | `tests/` | json halves of the Go tests above, passing |
+| `parse_budget_boundary_json`, `parse_budget_count_stable_json`, `parse_budget_stops_json` | `tests/parser.rs` | json twins of the budget tests (plan Task 11), passing |
+| `log_lines_cut_at_1023`, `kind_mask_after_parse` | `tests/parser.rs` | plan Task 11 and Review Focus 1, passing |
+| `graphify_api` | `tests/graphify_api.rs` | graphify's 20 adapter methods, passing |
 | `kind_mask_threads` and the other `language::tests` | `src/language.rs` | passing |
-| `node_api_built_tree`, `cursor_built_tree`, `preorder_deep_small_stack` | `src/node/tests.rs` | Task 10b |
+| `node_api_built_tree`, `cursor_built_tree`, `preorder_deep_small_stack` | `src/node/tests.rs` | Task 10b, passing |
 | `go_quote_cases`, `dump_fake_tree`, `sexp_only_up_to_depth_100`, `sampled_rule` | `treedump/tests/dump.rs` | passing |

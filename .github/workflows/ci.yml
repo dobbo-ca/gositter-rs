@@ -11,7 +11,9 @@ jobs:
   # the main stages are green.
   test:
     runs-on: github-arc-runner-set
-    timeout-minutes: 30
+    # Every cargo step rebuilds the workspace (ci/fresh.sh) and waits for the locked target
+    # cache, so a busy runner set needs more than 30 minutes (gositter-rs-jmw).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { lfs: false }
@@ -32,7 +34,7 @@ jobs:
   arm64:
     if: github.event_name != 'pull_request'
     runs-on: github-arc-runner-set
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { lfs: false }

@@ -9,7 +9,11 @@ pub mod cchar;
 pub mod lex;
 
 #[rustfmt::skip]
+pub mod bash;
+#[rustfmt::skip]
 pub mod c;
+#[rustfmt::skip]
+pub mod cpp;
 #[rustfmt::skip]
 pub mod golang;
 #[rustfmt::skip]
@@ -20,6 +24,8 @@ pub mod javascript;
 pub mod json;
 #[rustfmt::skip]
 pub mod python;
+#[rustfmt::skip]
+pub mod rust;
 #[rustfmt::skip]
 pub mod tsx;
 #[rustfmt::skip]
@@ -32,12 +38,6 @@ pub mod zig;
 /// `SerializationBufferSize` of gositter `api.go:25`. Moves to the runtime crate when its scanner trait lands.
 pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;
 
-#[cfg(test)]
-#[path = "bash/scanner.rs"]
-mod bash_scanner;
-#[cfg(test)]
-#[path = "cpp/scanner.rs"]
-mod cpp_scanner;
 #[cfg(test)]
 #[path = "csharp/scanner.rs"]
 mod csharp_scanner;
@@ -59,9 +59,6 @@ mod php_scanner;
 #[cfg(test)]
 #[path = "ruby/scanner.rs"]
 mod ruby_scanner;
-#[cfg(test)]
-#[path = "rust/scanner.rs"]
-mod rust_scanner;
 #[cfg(test)]
 #[path = "scala/scanner.rs"]
 mod scala_scanner;

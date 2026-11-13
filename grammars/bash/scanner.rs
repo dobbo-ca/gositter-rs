@@ -1358,7 +1358,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }
@@ -1531,19 +1530,13 @@ mod parser_tests {
         "cat <<EOF >out; echo $(\n",
     ];
 
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // The delimiter is compared as C chars against lookahead, so the two non-ASCII cases swap
     // where char is unsigned.
     // scanner_test.go TestHeredocEndChar
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn heredoc_end_char() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         for (src, want_err) in [
             (&b"cat <<E\nx\nE\n"[..], false),
             // signed: 0xFF is -1, as is an invalid byte
@@ -1564,16 +1557,15 @@ mod parser_tests {
     // B parsed after A on one parser has the tree of B on a fresh parser.
     // reset_test.go TestReusedScannerSameTree
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn reused_scanner_same_tree() {
         let mut reused = gositter::Parser::new();
-        reused.set_language(language()).unwrap();
+        reused.set_language(super::super::language()).unwrap();
         for a in RESET_INPUTS {
             for b in RESET_INPUTS {
                 reused.parse(a.as_bytes()).unwrap();
                 let got = reused.parse(b.as_bytes()).unwrap().root_node().to_sexp();
                 let mut fresh = gositter::Parser::new();
-                fresh.set_language(language()).unwrap();
+                fresh.set_language(super::super::language()).unwrap();
                 let want = fresh.parse(b.as_bytes()).unwrap().root_node().to_sexp();
                 assert_eq!(got, want, "{b:?} after {a:?}");
             }
@@ -1590,11 +1582,10 @@ mod parser_tests {
     // read back with kept_scanner, and a clone is reset since the borrow is shared.
     // Vec equality ignores capacity, so Go's `norm` is not needed.
     #[test]
-    #[ignore = "gositter-rs-2f0.11"]
     fn reset_is_new() {
         let mut dirty = 0;
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         for input in RESET_INPUTS {
             for budget in [0u32, 1] {
                 p.reset();
@@ -1619,14 +1610,13 @@ mod parser_tests {
     // their buffers; a Vec keeps no readable spare slots, so the Vec and the buffers of its
     // elements are counted.
     #[test]
-    #[ignore = "gositter-rs-2f0.11"]
     fn reset_drops_big_buffers() {
         for input in [
             "cat <<A; ".repeat(20000),
             format!("cat <<{}\nbody\n", "A".repeat(2000000)),
         ] {
             let mut p = gositter::Parser::new();
-            p.set_language(language()).unwrap();
+            p.set_language(super::super::language()).unwrap();
             p.parse(input.as_bytes());
             p.parse(b"echo hi\n");
             let k = kept(&p);

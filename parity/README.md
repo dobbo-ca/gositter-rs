@@ -18,9 +18,9 @@ Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 
 | Source | Tests | Ported | N/A-Go | Passing |
 |---|---|---|---|---|
-| gositter root package `Test` funcs | 53 | 0 | 5 | 0 |
-| gositter `Example` / `Benchmark` / `Fuzz` | 3 | 0 | 0 | 0 |
-| C goldens (`testdata/regress`) | 1,423 | 0 | 0 | 0 |
+| gositter root package `Test` funcs | 53 | 48 | 5 | 29 |
+| gositter `Example` / `Benchmark` / `Fuzz` | 3 | 2 | 0 | 1 |
+| C goldens (`testdata/regress`) | 1,423 | 1,423 | 0 | 0 |
 | gositter `cmd/gengrammar` and `grammars/internal/cchar` tests | 3 | 3 | 0 | 3 |
 | gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (62 compiled, 1 compiled out) | 63 | 63 | 0 | 42 |
 
@@ -45,67 +45,67 @@ it runs green in the `test` job.
 
 | Go file | Go test | Rust test | Rust file | Status |
 |---|---|---|---|---|
-| lexer_test.go | `TestLexerDecode` | `lexer_decode` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestLexerAdvanceAfterEOF` | `lexer_advance_after_eof` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestLexerEmptyInput` | `lexer_empty_input` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestLexerBOMAndPositions` | `lexer_bom_and_positions` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestLexerIsAtIncludedRangeStart` | `lexer_is_at_included_range_start` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestLexerFinish` | `lexer_finish` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestLexerResetBackwards` | `lexer_reset_backwards` | `src/lexer.rs` | to port (Task 6) |
-| lexer_test.go | `TestAdvanceRun` | `advance_run` | `src/lexer.rs` | to port (Task 6) |
-| subtree_test.go | `TestSubtreeInlineLayout` | `subtree_inline_layout` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeCanInline` | `subtree_can_inline` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeMissingAndErrorCost` | `subtree_missing_and_error_cost` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeNewNodeSummary` | `subtree_new_node_summary` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeMakeMutAndRelease` | `subtree_make_mut_and_release` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeCompare` | `subtree_compare` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeArraySplice` | `subtree_array_splice` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSubtreeRepeatDepthOfLeaves` | `subtree_repeat_depth_of_leaves` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestChildClass` | `child_class` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestChildrenBlockReuse` | `children_block_reuse` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestChildrenAllocator` | `children_allocator` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSummarizeRandom` | `summarize_random` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestSummarizeResume` | `summarize_resume` | `src/subtree.rs` | to port (Task 8) |
-| subtree_test.go | `TestCompressRandom` | `compress_random` | `src/subtree.rs` | to port (Task 8) |
+| lexer_test.go | `TestLexerDecode` | `lexer_decode` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestLexerAdvanceAfterEOF` | `lexer_advance_after_eof` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestLexerEmptyInput` | `lexer_empty_input` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestLexerBOMAndPositions` | `lexer_bom_and_positions` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestLexerIsAtIncludedRangeStart` | `lexer_is_at_included_range_start` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestLexerFinish` | `lexer_finish` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestLexerResetBackwards` | `lexer_reset_backwards` | `src/lexer.rs` | passing |
+| lexer_test.go | `TestAdvanceRun` | `advance_run` | `src/lexer.rs` | passing |
+| subtree_test.go | `TestSubtreeInlineLayout` | `subtree_inline_layout` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeCanInline` | `subtree_can_inline` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeMissingAndErrorCost` | `subtree_missing_and_error_cost` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeNewNodeSummary` | `subtree_new_node_summary` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeMakeMutAndRelease` | `subtree_make_mut_and_release` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeCompare` | `subtree_compare` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeArraySplice` | `subtree_array_splice` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSubtreeRepeatDepthOfLeaves` | `subtree_repeat_depth_of_leaves` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestChildClass` | `child_class` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestChildrenBlockReuse` | `children_block_reuse` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestChildrenAllocator` | `children_allocator` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSummarizeRandom` | `summarize_random` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestSummarizeResume` | `summarize_resume` | `src/subtree.rs` | passing |
+| subtree_test.go | `TestCompressRandom` | `compress_random` | `src/subtree.rs` | passing |
 | subtree_test.go | `TestColdGrowthAsMain` | — | — | N/A-Go: Go GC and append growth |
-| stack_test.go | `TestStackPushPopCount` | `stack_push_pop_count` | `src/stack.rs` | to port (Task 9) |
-| stack_test.go | `TestStackPopCountSkipsExtras` | `stack_pop_count_skips_extras` | `src/stack.rs` | to port (Task 9) |
-| stack_test.go | `TestStackMergeAndAmbiguousPop` | `stack_merge_and_ambiguous_pop` | `src/stack.rs` | to port (Task 9) |
-| stack_test.go | `TestStackEquivalentLinksCollapse` | `stack_equivalent_links_collapse` | `src/stack.rs` | to port (Task 9) |
-| stack_test.go | `TestStackPauseResumeHalt` | `stack_pause_resume_halt` | `src/stack.rs` | to port (Task 9) |
-| stack_test.go | `TestStackErrorDiscontinuityAndSummary` | `stack_error_discontinuity_and_summary` | `src/stack.rs` | to port (Task 9) |
-| stack_test.go | `TestStackClearReleases` | `stack_clear_releases` | `src/stack.rs` | to port (Task 9) |
-| dense_test.go | `TestDenseLookup` | `dense_lookup` | `tests/dense.rs` | to port (Task 5) |
-| parser_test.go | `TestParseJSONString` | `parse_json_string` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestNodeAPI` | `node_api` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestParserReuseAndNoLanguage` | `parser_reuse_and_no_language` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestLoggerMessages` | `logger_messages` | `tests/parser.rs` | to port (Task 5) |
+| stack_test.go | `TestStackPushPopCount` | `stack_push_pop_count` | `src/stack.rs` | passing |
+| stack_test.go | `TestStackPopCountSkipsExtras` | `stack_pop_count_skips_extras` | `src/stack.rs` | passing |
+| stack_test.go | `TestStackMergeAndAmbiguousPop` | `stack_merge_and_ambiguous_pop` | `src/stack.rs` | passing |
+| stack_test.go | `TestStackEquivalentLinksCollapse` | `stack_equivalent_links_collapse` | `src/stack.rs` | passing |
+| stack_test.go | `TestStackPauseResumeHalt` | `stack_pause_resume_halt` | `src/stack.rs` | passing |
+| stack_test.go | `TestStackErrorDiscontinuityAndSummary` | `stack_error_discontinuity_and_summary` | `src/stack.rs` | passing |
+| stack_test.go | `TestStackClearReleases` | `stack_clear_releases` | `src/stack.rs` | passing |
+| dense_test.go | `TestDenseLookup` | `dense_lookup` | `tests/dense.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestParseJSONString` | `parse_json_string` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestNodeAPI` | `node_api` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestParserReuseAndNoLanguage` | `parser_reuse_and_no_language` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestLoggerMessages` | `logger_messages` | `tests/parser.rs` | ported, ignored until its grammar |
 | parser_test.go | `TestParseAllocs` | — | — | N/A-Go: AllocsPerRun |
-| parser_test.go | `TestErrorRecoveryMemory` | `error_recovery_memory` | `tests/parser.rs` | to port (Task 5); alloc half N/A-Go |
-| parser_test.go | `TestHeapChunksShared` | `heap_chunks_reused` | `tests/parser.rs` | to port (Task 5); shared-pool half N/A-Go |
-| parser_test.go | `TestChildrenSlabDropped` | `children_slab_dropped` | `tests/parser.rs` | to port (Task 5); alloc half N/A-Go |
-| parser_test.go | `TestParseBudgetStops` | `parse_budget_stops` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestParseBudgetBoundary` | `parse_budget_boundary` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestParseBudgetCountStable` | `parse_budget_count_stable` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestStackSlabsDropped` | `stack_slabs_dropped` | `tests/parser.rs` | to port (Task 5); alloc half N/A-Go |
+| parser_test.go | `TestErrorRecoveryMemory` | `error_recovery_memory` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
+| parser_test.go | `TestHeapChunksShared` | `heap_chunks_reused` | `tests/parser.rs` | ported, ignored until its grammar; shared-pool half N/A-Go |
+| parser_test.go | `TestChildrenSlabDropped` | `children_slab_dropped` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
+| parser_test.go | `TestParseBudgetStops` | `parse_budget_stops` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestParseBudgetBoundary` | `parse_budget_boundary` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestParseBudgetCountStable` | `parse_budget_count_stable` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestStackSlabsDropped` | `stack_slabs_dropped` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
 | parser_test.go | `TestHugeSlabsFreed` | — | — | N/A-Go: finalizers, weak pointers |
 | parser_test.go | `TestKeptLinkSlabOutlivesGC` | — | — | N/A-Go: weak pointers |
 | parser_test.go | `TestHugeLinkSlabFreedByLinklessParses` | — | — | N/A-Go: weak pointers |
-| parser_test.go | `TestSmallParseTakesSmallSlabs` | `small_parse_takes_small_slabs` | `tests/parser.rs` | to port (Task 5) |
-| parser_test.go | `TestSlabsAcrossParsers` | `slabs_across_parsers` | `tests/parser.rs` | to port (Task 5), threads |
-| scanner_reuse_test.go | `TestScannerReuseAcrossLanguages` | `scanner_reuse_across_languages` | `tests/scanner_reuse.rs` | to port (Task 5) |
-| scanner_reuse_test.go | `TestSetLanguageDropsKeptScanner` | `set_language_drops_kept_scanner` | `tests/scanner_reuse.rs` | to port (Task 5) |
-| regress_test.go | `TestRegress` | `regress_<dir> x21` | `tests/regress.rs` | to port (Task 5) |
-| regress_test.go | `TestSummaries` | `summaries` | `tests/regress.rs` | to port (Task 5) |
-| regress_test.go | `TestChildrenWide` | `children_wide` | `tests/regress.rs` | to port (Task 5) |
+| parser_test.go | `TestSmallParseTakesSmallSlabs` | `small_parse_takes_small_slabs` | `tests/parser.rs` | ported, ignored until its grammar |
+| parser_test.go | `TestSlabsAcrossParsers` | `slabs_across_parsers` | `tests/parser.rs` | ported (threads), ignored until its grammar |
+| scanner_reuse_test.go | `TestScannerReuseAcrossLanguages` | `scanner_reuse_across_languages` | `tests/scanner_reuse.rs` | ported, ignored until its grammar |
+| scanner_reuse_test.go | `TestSetLanguageDropsKeptScanner` | `set_language_drops_kept_scanner` | `tests/scanner_reuse.rs` | ported, ignored until its grammar |
+| regress_test.go | `TestRegress` | `regress_<dir> x21` | `tests/regress.rs` | ported, ignored until its grammar |
+| regress_test.go | `TestSummaries` | `summaries` | `tests/regress.rs` | ported, ignored until its grammar |
+| regress_test.go | `TestChildrenWide` | `children_wide` | `tests/regress.rs` | ported, ignored until its grammar |
 
 ## Example, Benchmark, Fuzz
 
 | Go file | Go test | Rust test | Rust file | Status |
 |---|---|---|---|---|
-| example_test.go | `Example` | `example_python` | `tests/example.rs` | to port (Task 5) |
+| example_test.go | `Example` | `example_python` | `tests/example.rs` | ported, ignored until its grammar |
 | parser_test.go | `BenchmarkParseJSON` | `gsdump bench json_2000` | `examples/gsdump.rs` | to port (Task 14) |
-| lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | to port (Tasks 6, 13) |
+| lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | `advance_run_random` passing; fuzz target in Task 13 |
 
 ## Grammar tests
 
@@ -146,3 +146,15 @@ reset tests read `Parser::kept_scanner`, which is `todo!` until it lands). The h
 as `reset_hand_made`. Tests with no Go source are not counted: gengrammar's SHA-256 vectors, lock file,
 tokenizer and parser rejects, and the oracle diffs of Tasks 6 and 8, which run in addition to the ported
 tests.
+
+## Tests added by the port (not in gositter)
+
+| Rust test | File | Status |
+|---|---|---|
+| `regress_json`, `error_recovery_memory_json`, `summaries_json`, `children_wide_json`, `dense_lookup_json` | `tests/` | json halves of the Go tests above, ignored until json is wired (gositter-rs-2f0.11) |
+| `parse_budget_boundary_json`, `parse_budget_count_stable_json`, `parse_budget_stops_json` | `tests/parser.rs` | json twins of the budget tests (plan Task 11), ignored (gositter-rs-2f0.11) |
+| `log_lines_cut_at_1023`, `kind_mask_after_parse` | `tests/parser.rs` | plan Task 11 and Review Focus 1, ignored (gositter-rs-2f0.11) |
+| `graphify_api` | `tests/graphify_api.rs` | graphify's 20 adapter methods, ignored (gositter-rs-2f0.11) |
+| `kind_mask_threads` and the other `language::tests` | `src/language.rs` | passing |
+| `node_api_built_tree`, `cursor_built_tree`, `preorder_deep_small_stack` | `src/node/tests.rs` | Task 10b |
+| `go_quote_cases`, `dump_fake_tree`, `sexp_only_up_to_depth_100`, `sampled_rule` | `treedump/tests/dump.rs` | passing |

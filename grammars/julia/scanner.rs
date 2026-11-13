@@ -257,7 +257,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }

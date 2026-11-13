@@ -4,13 +4,18 @@
 
 mod common;
 
-use gositter::Parser;
+use gositter::{Language, Parser};
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn graphify_api() {
     let src = br#"{"k": [10, "s"]}"#;
-    let json = common::language("json").expect("json grammar");
+    // A copy, so that the kind bits stay out of the static json other tests share. graphify
+    // names its kinds at package init, before any parse: a tree knows only the kinds named
+    // before it was parsed (gositter KindMask).
+    let json: &'static Language = Box::leak(Box::new(
+        common::language("json").expect("json grammar").clone(),
+    ));
+    let pair_mask = json.kind_mask(&["pair"]);
     let mut p = Parser::new();
     p.set_language(json).unwrap();
     let tree = p.parse(src).expect("tree");
@@ -59,7 +64,7 @@ fn graphify_api() {
     assert_eq!(visited, walked);
 
     let mut pairs = 0;
-    root.preorder_mask(json.kind_mask(&["pair"]), |_| {
+    root.preorder_mask(pair_mask, |_| {
         pairs += 1;
         true
     });

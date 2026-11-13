@@ -6,7 +6,8 @@ use crate::subtree::{
     ERROR_COST_PER_RECOVERY, ERROR_COST_PER_SKIPPED_CHAR, ERROR_COST_PER_SKIPPED_LINE,
     ERROR_COST_PER_SKIPPED_TREE, F_DEPENDS_ON_COLUMN, F_EXTRA, F_FRAGILE_LEFT, F_FRAGILE_RIGHT,
     F_HAS_EXTERNAL_SCANNER_STATE_CHANGE, F_HAS_EXTERNAL_TOKENS, F_HAS_REPEAT, F_NAMED, F_VISIBLE,
-    INL_EXTRA, INL_NAMED, INL_VISIBLE, Subtree, SubtreeHeap, SubtreePool, TREE_STATE_NONE,
+    HeapChunk, INL_EXTRA, INL_NAMED, INL_VISIBLE, Subtree, SubtreeHeap, SubtreePool,
+    TREE_STATE_NONE,
 };
 use crate::{
     ExternalScanner, FieldId, Language, Node, Parser, SYMBOL_ERROR, SYMBOL_ERROR_REPEAT, StateId,
@@ -73,11 +74,7 @@ impl Language {
     }
 }
 
-// The hooks below are used only by the subtree tests (src/subtree/tests_*.rs), so a non-test
-// build sees them as dead code.
-
 /// SummaryCheck: what summaries_ok went over. `bad` is "" or what differed first.
-#[allow(dead_code)]
 #[doc(hidden)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SummaryCheck {
@@ -93,7 +90,6 @@ pub struct SummaryCheck {
 /// summarize_children. The kind mask and F_HAS_REPEAT are not in C. Go writes through the
 /// heap pointer; here the node is copied out and written back at the end (no child is the
 /// node itself, so no read sees the difference).
-#[allow(dead_code)]
 #[doc(hidden)]
 pub(crate) fn summarize_children_ref(sp: &mut SubtreePool, s: Subtree, lang: &Language) {
     let mut h = *sp.ptr(s);
@@ -252,7 +248,6 @@ pub(crate) fn summarize_children_ref(sp: &mut SubtreePool, s: Subtree, lang: &La
 }
 
 /// summarized: puts fresh in the slot of s, summarizes it with f and puts the node back.
-#[allow(dead_code)]
 #[doc(hidden)]
 pub(crate) fn summarized(
     sp: &mut SubtreePool,
@@ -273,7 +268,6 @@ pub(crate) fn summarized(
 /// summary as it stands, what summarize makes of the node as new_node leaves it, and what it
 /// makes of an ERROR node over the same children, from the start and resumed after some of
 /// them.
-#[allow(dead_code)]
 #[doc(hidden)]
 pub(crate) fn check_summary(
     sp: &mut SubtreePool,
@@ -367,60 +361,160 @@ pub(crate) fn check_summary(
     }
 }
 
+/// A copy of the slabs that summarize reads, for the hooks that summarize nodes again: Go
+/// writes into the parser's own slab, but these hooks take the parser by reference. The
+/// chunks are copied through a Vec: a 160 KiB array on the stack could overflow a test
+/// thread's.
+fn pool_copy(sp: &SubtreePool) -> SubtreePool {
+    let heap = sp
+        .heap
+        .iter()
+        .map(|c| -> Box<HeapChunk> { c.to_vec().into_boxed_slice().try_into().unwrap() })
+        .collect();
+    SubtreePool {
+        heap,
+        heap_len: sp.heap_len,
+        children: sp.children.clone(),
+        ext: sp.ext.clone(),
+        resume: sp.resume,
+        ..SubtreePool::default()
+    }
+}
+
 impl Parser {
+    /// The root subtree of the last tree (`sp.children[p.tree.root]`).
+    fn root_subtree(&self) -> Subtree {
+        self.tree.pool.children[self.tree.root as usize]
+    }
+
     /// Capacity of the subtree children slab (gositter `ChildrenSlabCap`).
     #[doc(hidden)]
     pub fn children_slab_cap(&self) -> usize {
-        todo!("gositter-rs-2f0.11")
+        self.tree.pool.children.capacity()
     }
 
     /// Capacity of the stack node slab (gositter `StackSlabCap`).
     #[doc(hidden)]
     pub fn stack_slab_cap(&self) -> usize {
-        todo!("gositter-rs-2f0.11")
+        self.stack.nodes.capacity()
     }
 
     /// Capacity of the stack link slab (gositter `LinkSlabCap`).
     #[doc(hidden)]
     pub fn link_slab_cap(&self) -> usize {
-        todo!("gositter-rs-2f0.11")
+        self.stack.more_links.capacity()
     }
 
     /// Number of subtree heap chunks held (gositter `HeapChunks`).
     #[doc(hidden)]
     pub fn heap_chunks(&self) -> usize {
-        todo!("gositter-rs-2f0.11")
+        self.tree.pool.heap.len()
     }
 
-    /// Whether every node's repeat flag matches its children (gositter `RepeatFlagsOK`).
+    /// Whether every node's repeat flag matches its children (gositter `RepeatFlagsOK`):
+    /// F_HAS_REPEAT covers every node with a repeat depth in the last tree, and each of its
+    /// ancestors. balance_subtree skips what the flag leaves out.
     #[doc(hidden)]
     pub fn repeat_flags_ok(&self) -> bool {
-        todo!("gositter-rs-2f0.11")
+        let sp = &self.tree.pool;
+        let mut stack = vec![self.root_subtree()];
+        while let Some(s) = stack.pop() {
+            if sp.child_count(s) == 0 {
+                continue;
+            }
+            let h = sp.ptr(s);
+            if h.repeat_depth > 0 && h.flags & F_HAS_REPEAT == 0 {
+                return false;
+            }
+            for &c in sp.children_of(s) {
+                if sp.child_count(c) > 0
+                    && sp.ptr(c).flags & F_HAS_REPEAT != 0
+                    && h.flags & F_HAS_REPEAT == 0
+                {
+                    return false;
+                }
+                stack.push(c);
+            }
+        }
+        true
     }
 
-    /// (nodes checked, ok) for the one-child summaries (gositter `OneChildSummaryOK`).
+    /// (nodes checked, ok) for the one-child summaries (gositter `OneChildSummaryOK`):
+    /// whether summarize_one_child and summarize_children agree on every node of the last
+    /// tree that new_node sent down the short path.
     #[doc(hidden)]
     pub fn one_child_summary_ok(&self) -> (usize, bool) {
-        todo!("gositter-rs-2f0.11")
+        let lang = self.language.expect("gositter: no language");
+        let mut sp = pool_copy(&self.tree.pool);
+        let mut nodes = 0;
+        let mut stack = vec![self.root_subtree()];
+        while let Some(s) = stack.pop() {
+            if sp.child_count(s) == 0 {
+                continue;
+            }
+            stack.extend_from_slice(sp.children_of(s));
+            let h = *sp.ptr(s);
+            if h.child_count != 1 || h.symbol == SYMBOL_ERROR || h.symbol == SYMBOL_ERROR_REPEAT {
+                continue;
+            }
+            // The node as new_node leaves it for the summary.
+            let fresh = SubtreeHeap {
+                ref_count: 1,
+                symbol: h.symbol,
+                child_count: 1,
+                flags: h.flags & (F_VISIBLE | F_NAMED),
+                production_id: h.production_id,
+                children: h.children,
+                child_class: h.child_class,
+                ..SubtreeHeap::default()
+            };
+            let want = summarized(&mut sp, s, fresh, lang, SubtreePool::summarize_children);
+            let mut got = fresh;
+            sp.summarize_one_child(
+                &mut got,
+                fresh.flags,
+                lang.alias_sequence(u32::from(fresh.production_id)),
+                lang,
+            );
+            if got != want {
+                return (nodes, false);
+            }
+            nodes += 1;
+        }
+        (nodes, true)
     }
 
     /// (nodes checked, ok) for the error scans (gositter `ErrorScansOK`).
     #[doc(hidden)]
     pub fn error_scans_ok(&self) -> (usize, bool) {
-        todo!("gositter-rs-2f0.11")
+        self.check_error_scans()
     }
 
     /// check_summary over every node of the last tree (gositter `SummariesOK`).
     #[doc(hidden)]
     pub fn summaries_ok(&self) -> SummaryCheck {
-        todo!("gositter-rs-2f0.11")
+        let mut c = SummaryCheck::default();
+        let lang = self.language.expect("gositter: no language");
+        let mut sp = pool_copy(&self.tree.pool);
+        let mut stack = vec![self.root_subtree()];
+        while let Some(s) = stack.pop() {
+            if !c.bad.is_empty() {
+                break;
+            }
+            if sp.child_count(s) == 0 {
+                continue;
+            }
+            stack.extend_from_slice(sp.children_of(s));
+            check_summary(&mut sp, s, lang, &mut c);
+        }
+        c
     }
 
     /// Generation number of the kept scanner, bumped per scanner construction (gositter
     /// `KeptScannerID`); None when no scanner is kept.
     #[doc(hidden)]
     pub fn kept_scanner_id(&self) -> Option<u64> {
-        todo!("gositter-rs-2f0.11")
+        self.kept_scanner.as_ref().map(|_| self.scanner_generation)
     }
 
     /// The scanner the parser keeps for its next parse in the same language (gositter
@@ -428,7 +522,7 @@ impl Parser {
     /// scanner type.
     #[doc(hidden)]
     pub fn kept_scanner(&self) -> Option<&dyn ExternalScanner> {
-        todo!("gositter-rs-2f0.11")
+        self.kept_scanner.as_deref()
     }
 }
 

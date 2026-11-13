@@ -164,7 +164,6 @@ fn regress(dir: &'static str) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn regress_json() {
     regress("json");
 }
@@ -235,7 +234,6 @@ fn summaries_of(cases: Vec<(&'static str, &'static str, String)>) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn summaries_json() {
     summaries_of(vec![
         (
@@ -428,7 +426,6 @@ fn children_wide_of(dirs: &'static [&'static str]) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn children_wide_json() {
     children_wide_of(&["json"]);
 }

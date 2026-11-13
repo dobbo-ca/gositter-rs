@@ -25,7 +25,6 @@ fn dense_lookup_of(errs: &mut Vec<String>, dir: &str) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn dense_lookup_json() {
     let mut errs = Vec::new();
     dense_lookup_of(&mut errs, "json");

@@ -31,10 +31,13 @@ pub const DIRS: [&str; 21] = [
     "zig",
 ];
 
-/// The language of a regress directory. `None` until the grammar is on main (plan Tasks 11
-/// and 15).
-pub fn language(_dir: &str) -> Option<&'static Language> {
-    None
+/// The language of a regress directory: `None` until its grammar is in gositter-grammars
+/// (plan Task 15 adds each one as it lands).
+pub fn language(dir: &str) -> Option<&'static Language> {
+    match dir {
+        "json" => Some(gositter_grammars::json::language()),
+        _ => None,
+    }
 }
 
 /// `testdata/regress/<dir>`.

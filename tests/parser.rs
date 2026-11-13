@@ -46,8 +46,11 @@ fn dump(tree: &Tree, src: &[u8]) -> Vec<u8> {
     out
 }
 
+/// The messages a test logger collects: (type, bytes) in order.
+type Messages = Arc<Mutex<Vec<(LogType, Vec<u8>)>>>;
+
 /// A logger that collects every message.
-fn collect(p: &mut Parser) -> Arc<Mutex<Vec<(LogType, Vec<u8>)>>> {
+fn collect(p: &mut Parser) -> Messages {
     let log = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::clone(&log);
     p.set_logger(Some(Box::new(move |t: LogType, m: &[u8]| {

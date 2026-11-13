@@ -154,7 +154,10 @@ macro_rules! view {
             /// The whole of `bytes`. Panics if its length is not a multiple of the
             /// element size.
             pub const fn new(bytes: &'static [u8]) -> Self {
-                assert!(bytes.len() % Self::SIZE == 0, "view length is not a multiple of the element size");
+                assert!(
+                    bytes.len().is_multiple_of(Self::SIZE),
+                    "view length is not a multiple of the element size"
+                );
                 $name(bytes)
             }
 
@@ -349,9 +352,9 @@ pub struct LanguageTables {
 /// bits). It is `Sync`, so a grammar holds it in a `static` built with `Language::new`
 /// and returns `&'static Language`. `Clone` copies the tables and starts fresh derived
 /// state.
+#[non_exhaustive]
 pub struct Language {
     pub tables: LanguageTables,
-    _derived: (),
 }
 
 impl Language {

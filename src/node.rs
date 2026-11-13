@@ -140,7 +140,7 @@ impl<'t> Node<'t> {
     }
 
     /// `src[start_byte..end_byte]`, as go-tree-sitter's `Utf8Text`.
-    pub fn utf8_text<'s>(self, _src: &'s [u8]) -> &'s [u8] {
+    pub fn utf8_text(self, _src: &[u8]) -> &[u8] {
         todo!("gositter-rs-2f0.10")
     }
 

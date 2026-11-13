@@ -1,5 +1,5 @@
 name: gen
-on: { workflow_dispatch: {} }
+on: { workflow_dispatch: {}, push: { branches: [main] } }
 permissions:
   contents: read
 # One group per ref, as ci.yml: a started main run always finishes, only the newest pending main
@@ -12,6 +12,7 @@ jobs:
   # uploads them as the artifact `grammars-gen`. Commit them with git (no build on the Mac); the
   # `test` job regenerates and fails on any diff.
   gen:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: github-arc-runner-set
     timeout-minutes: 45
     steps:
@@ -36,3 +37,24 @@ jobs:
           name: grammars-gen
           path: gen-out
           if-no-files-found: error
+
+  # Our tables against gositter's own Go tables (plan Task 6), on every push to main and on dispatch.
+  grammar-parity:
+    runs-on: github-arc-runner-set
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { lfs: false }
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver: remote
+          endpoint: tcp://buildkitd.github-arc.svc.cluster.local:1234
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ci/Dockerfile
+          target: grammar-parity
+          push: false
+          outputs: type=cacheonly
+          cache-from: type=gha,scope=gositter-rs-grammar-parity
+          cache-to: type=gha,mode=max,scope=gositter-rs-grammar-parity

@@ -80,7 +80,7 @@ impl Language {
 #[allow(dead_code)]
 #[doc(hidden)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct SummaryCheck {
+pub struct SummaryCheck {
     pub nodes: usize,
     pub two_heap: usize,
     pub column: usize,
@@ -368,6 +368,61 @@ pub(crate) fn check_summary(
 }
 
 impl Parser {
+    /// Capacity of the subtree children slab (gositter `ChildrenSlabCap`).
+    #[doc(hidden)]
+    pub fn children_slab_cap(&self) -> usize {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// Capacity of the stack node slab (gositter `StackSlabCap`).
+    #[doc(hidden)]
+    pub fn stack_slab_cap(&self) -> usize {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// Capacity of the stack link slab (gositter `LinkSlabCap`).
+    #[doc(hidden)]
+    pub fn link_slab_cap(&self) -> usize {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// Number of subtree heap chunks held (gositter `HeapChunks`).
+    #[doc(hidden)]
+    pub fn heap_chunks(&self) -> usize {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// Whether every node's repeat flag matches its children (gositter `RepeatFlagsOK`).
+    #[doc(hidden)]
+    pub fn repeat_flags_ok(&self) -> bool {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// (nodes checked, ok) for the one-child summaries (gositter `OneChildSummaryOK`).
+    #[doc(hidden)]
+    pub fn one_child_summary_ok(&self) -> (usize, bool) {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// (nodes checked, ok) for the error scans (gositter `ErrorScansOK`).
+    #[doc(hidden)]
+    pub fn error_scans_ok(&self) -> (usize, bool) {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// check_summary over every node of the last tree (gositter `SummariesOK`).
+    #[doc(hidden)]
+    pub fn summaries_ok(&self) -> SummaryCheck {
+        todo!("gositter-rs-2f0.11")
+    }
+
+    /// Generation number of the kept scanner, bumped per scanner construction (gositter
+    /// `KeptScannerID`); None when no scanner is kept.
+    #[doc(hidden)]
+    pub fn kept_scanner_id(&self) -> Option<u64> {
+        todo!("gositter-rs-2f0.11")
+    }
+
     /// The scanner the parser keeps for its next parse in the same language (gositter
     /// `KeptScanner`). A test upcasts it to `&dyn Any` and downcasts it to the grammar's
     /// scanner type.

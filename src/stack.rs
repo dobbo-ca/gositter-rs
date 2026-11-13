@@ -126,9 +126,9 @@ pub(crate) const CB_SUMMARIZE: u8 = 3;
 
 /// slabpool.go shrinkNodes: a reset shrinks a node slab above this many entries that the
 /// parse before used under an eighth of.
-pub(crate) const SHRINK_NODES: usize = 1 << 14;
+pub const SHRINK_NODES: usize = 1 << 14;
 /// slabpool.go shrinkLinks: the same for the more_links slab.
-pub(crate) const SHRINK_LINKS: usize = 1 << 12;
+pub const SHRINK_LINKS: usize = 1 << 12;
 /// slabpool.go shrinkIndexes: the same for the u32 slabs node_pool and more.
 pub(crate) const SHRINK_INDEXES: usize = 1 << 20;
 

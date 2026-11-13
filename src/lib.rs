@@ -28,7 +28,13 @@ mod tree;
 mod tree_cursor;
 
 pub use api::*;
+#[doc(hidden)]
+pub use export::SummaryCheck;
 pub use node::Node;
 pub use parser::{LanguageError, Parser};
+#[doc(hidden)]
+pub use stack::{SHRINK_LINKS, SHRINK_NODES};
+#[doc(hidden)]
+pub use subtree::{KEPT_HEAP_CHUNKS, SHRINK_CHILDREN};
 pub use tree::Tree;
 pub use tree_cursor::TreeCursor;

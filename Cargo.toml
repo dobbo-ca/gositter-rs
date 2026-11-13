@@ -9,6 +9,9 @@ publish = false
 
 [dependencies]
 
+[dev-dependencies]
+gositter-treedump = { path = "treedump" }
+
 [lints.rust]
 unsafe_code = "deny"
 

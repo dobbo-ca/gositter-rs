@@ -3,6 +3,10 @@
 //! `docs/superpowers/plans/2026-11-13-runtime.md`.
 
 mod api;
+mod export;
+// The parser (plan Task 11) is the first user of language.rs's internals.
+#[allow(dead_code)]
+mod language;
 // The parser (plan Task 11) is the first user of these two; until then only their tests are.
 #[allow(dead_code)]
 mod length;
@@ -10,6 +14,8 @@ mod length;
 mod lexer;
 mod node;
 mod parser;
+#[cfg(test)]
+mod test_language;
 mod tree;
 mod tree_cursor;
 

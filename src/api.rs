@@ -352,44 +352,21 @@ pub struct LanguageTables {
 /// bits). It is `Sync`, so a grammar holds it in a `static` built with `Language::new`
 /// and returns `&'static Language`. `Clone` copies the tables and starts fresh derived
 /// state.
-#[non_exhaustive]
 pub struct Language {
     pub tables: LanguageTables,
+    pub(crate) derived: crate::language::Derived,
 }
 
 impl Language {
     pub const fn new(tables: LanguageTables) -> Language {
-        Language { tables }
-    }
-
-    /// ts_language_symbol_name: "ERROR" and "_ERROR" for the builtins, `None` out of range.
-    pub fn symbol_name(&self, _symbol: Symbol) -> Option<&'static str> {
-        todo!("gositter-rs-2f0.7")
-    }
-
-    /// ts_language_field_name_for_id
-    pub fn field_name_for_id(&self, _id: FieldId) -> Option<&'static str> {
-        todo!("gositter-rs-2f0.7")
-    }
-
-    /// ts_language_field_id_for_name. 0 if there is no such field.
-    pub fn field_id_for_name(&self, _name: &str) -> FieldId {
-        todo!("gositter-rs-2f0.7")
-    }
-
-    /// The bits that stand for the named node kinds in `Node::preorder_mask`, giving each
-    /// new name the next of 32 bits. A tree knows the kinds named before it was parsed.
-    /// Panics with "gositter: more than 32 kinds named to KindMask". No C counterpart.
-    pub fn kind_mask(&self, _kinds: &[&str]) -> u32 {
-        todo!("gositter-rs-2f0.7")
+        Language {
+            tables,
+            derived: crate::language::Derived::new(),
+        }
     }
 }
 
-impl Clone for Language {
-    fn clone(&self) -> Self {
-        Language::new(self.tables)
-    }
-}
+// The other Language methods are in language.rs (language.c).
 
 /// The C Lexer with its embedded TSLexer, valid for one parse (`'s` borrows the source).
 /// Generated lexers and scanners use only the two public fields and the methods below.

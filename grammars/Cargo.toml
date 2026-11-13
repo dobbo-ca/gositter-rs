@@ -1,0 +1,16 @@
+[package]
+name = "gositter-grammars"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+description = "The 21 gositter grammars: generated tables and lexers, hand-ported external scanners."
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

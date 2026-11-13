@@ -265,18 +265,16 @@ fn scan_reductions(
                         has_shift_action = true;
                     }
                 }
-                PARSE_ACTION_TYPE_REDUCE => {
-                    if action.child_count > 0 {
-                        reduce_action_set_add(
-                            actions,
-                            ReduceAction {
-                                symbol: action.symbol,
-                                count: u32::from(action.child_count),
-                                dynamic_precedence: i32::from(action.dynamic_precedence),
-                                production_id: action.production_id,
-                            },
-                        );
-                    }
+                PARSE_ACTION_TYPE_REDUCE if action.child_count > 0 => {
+                    reduce_action_set_add(
+                        actions,
+                        ReduceAction {
+                            symbol: action.symbol,
+                            count: u32::from(action.child_count),
+                            dynamic_precedence: i32::from(action.dynamic_precedence),
+                            production_id: action.production_id,
+                        },
+                    );
                 }
                 _ => {}
             }
@@ -440,10 +438,10 @@ impl Parser {
             let status_i = self.version_status(i);
             match compare_versions(status, status_i) {
                 ERROR_COMPARISON_TAKE_RIGHT => return true,
-                ERROR_COMPARISON_PREFER_RIGHT => {
-                    if self.stack.can_merge(&self.tree.pool, i, version) {
-                        return true;
-                    }
+                ERROR_COMPARISON_PREFER_RIGHT
+                    if self.stack.can_merge(&self.tree.pool, i, version) =>
+                {
+                    return true;
                 }
                 _ => {}
             }

@@ -72,4 +72,5 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 sync:
-    remote: "git+ssh://git@github.com/dobbo-ca/gositter-rs.git"
+    remote: "git+ssh://git@github.com/dobbo-ca/gositter-rs"
+    branch: beads-metadata

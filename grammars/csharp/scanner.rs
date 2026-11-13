@@ -580,17 +580,11 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // Parses through the scanner and checks the state left behind.
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn scan_state() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         for (src, want) in [
             (r#"var s = $"a{b}c";"#, "interpolated_string_expression"),
             (r#"var s = $@"a""{b}c";"#, "interpolated_string_expression"),

@@ -187,9 +187,12 @@ regress_wired! {
     regress_bash => "bash",
     regress_c => "c",
     regress_cpp => "cpp",
+    regress_c_sharp => "c-sharp",
     regress_go => "go",
     regress_java => "java",
     regress_javascript => "javascript",
+    regress_julia => "julia",
+    regress_kotlin => "kotlin",
     regress_python => "python",
     regress_rust => "rust",
     regress_tsx => "tsx",
@@ -209,10 +212,7 @@ macro_rules! regress_tests {
 }
 
 regress_tests! {
-    regress_c_sharp => "c-sharp",
     regress_hcl => "hcl",
-    regress_julia => "julia",
-    regress_kotlin => "kotlin",
     regress_lua => "lua",
     regress_php => "php",
     regress_ruby => "ruby",

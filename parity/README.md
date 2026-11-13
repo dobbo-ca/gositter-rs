@@ -38,11 +38,11 @@ Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 
 | Source | Tests | Ported | N/A-Go | Passing |
 |---|---|---|---|---|
-| gositter root package `Test` funcs | 53 | 48 | 5 | 33 |
-| gositter `Example` / `Benchmark` / `Fuzz` | 3 | 2 | 0 | 1 |
-| C goldens (`testdata/regress`) | 1,423 | 1,423 | 0 | 50 (json) |
+| gositter root package `Test` funcs | 53 | 48 | 5 | 43 |
+| gositter `Example` / `Benchmark` / `Fuzz` | 3 | 2 | 0 | 2 |
+| C goldens (`testdata/regress`) | 1,423 | 1,423 | 0 | 1,058 (16 grammars) |
 | gositter `cmd/gengrammar` and `grammars/internal/cchar` tests | 3 | 3 | 0 | 3 |
-| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (63 compiled, 0 compiled out) | 63 | 63 | 0 | 55 |
+| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (63 compiled, 0 compiled out) | 63 | 63 | 0 | 59 |
 
 "Ported" counts a test once it is in the tree (passing or `#[ignore = "<bead>"]`); "Passing" counts it once
 it runs green in the `test` job.
@@ -102,20 +102,20 @@ it runs green in the `test` job.
 | parser_test.go | `TestLoggerMessages` | `logger_messages` | `tests/parser.rs` | passing |
 | parser_test.go | `TestParseAllocs` | — | — | N/A-Go: AllocsPerRun |
 | parser_test.go | `TestErrorRecoveryMemory` | `error_recovery_memory` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
-| parser_test.go | `TestHeapChunksShared` | `heap_chunks_reused` | `tests/parser.rs` | ported, ignored until its grammar; shared-pool half N/A-Go |
-| parser_test.go | `TestChildrenSlabDropped` | `children_slab_dropped` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
-| parser_test.go | `TestParseBudgetStops` | `parse_budget_stops` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestParseBudgetBoundary` | `parse_budget_boundary` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestParseBudgetCountStable` | `parse_budget_count_stable` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestStackSlabsDropped` | `stack_slabs_dropped` | `tests/parser.rs` | ported, ignored until its grammar; alloc half N/A-Go |
+| parser_test.go | `TestHeapChunksShared` | `heap_chunks_reused` | `tests/parser.rs` | ported, passing; shared-pool half N/A-Go |
+| parser_test.go | `TestChildrenSlabDropped` | `children_slab_dropped` | `tests/parser.rs` | ported, passing; alloc half N/A-Go |
+| parser_test.go | `TestParseBudgetStops` | `parse_budget_stops` | `tests/parser.rs` | ported, passing |
+| parser_test.go | `TestParseBudgetBoundary` | `parse_budget_boundary` | `tests/parser.rs` | ported, passing |
+| parser_test.go | `TestParseBudgetCountStable` | `parse_budget_count_stable` | `tests/parser.rs` | ported, passing |
+| parser_test.go | `TestStackSlabsDropped` | `stack_slabs_dropped` | `tests/parser.rs` | ported, passing; alloc half N/A-Go |
 | parser_test.go | `TestHugeSlabsFreed` | — | — | N/A-Go: finalizers, weak pointers |
 | parser_test.go | `TestKeptLinkSlabOutlivesGC` | — | — | N/A-Go: weak pointers |
 | parser_test.go | `TestHugeLinkSlabFreedByLinklessParses` | — | — | N/A-Go: weak pointers |
-| parser_test.go | `TestSmallParseTakesSmallSlabs` | `small_parse_takes_small_slabs` | `tests/parser.rs` | ported, ignored until its grammar |
-| parser_test.go | `TestSlabsAcrossParsers` | `slabs_across_parsers` | `tests/parser.rs` | ported (threads), ignored until its grammar |
+| parser_test.go | `TestSmallParseTakesSmallSlabs` | `small_parse_takes_small_slabs` | `tests/parser.rs` | ported, passing |
+| parser_test.go | `TestSlabsAcrossParsers` | `slabs_across_parsers` | `tests/parser.rs` | ported (threads), passing |
 | scanner_reuse_test.go | `TestScannerReuseAcrossLanguages` | `scanner_reuse_across_languages` | `tests/scanner_reuse.rs` | ported, passing |
 | scanner_reuse_test.go | `TestSetLanguageDropsKeptScanner` | `set_language_drops_kept_scanner` | `tests/scanner_reuse.rs` | ported, passing |
-| regress_test.go | `TestRegress` | `regress_<dir> x21` | `tests/regress.rs` | ported, ignored until its grammar |
+| regress_test.go | `TestRegress` | `regress_<dir> x21` | `tests/regress.rs` | ported; passing for the 16 wired grammars, the rest ignored until their grammar |
 | regress_test.go | `TestSummaries` | `summaries` | `tests/regress.rs` | ported, ignored until its grammar |
 | regress_test.go | `TestChildrenWide` | `children_wide` | `tests/regress.rs` | ported, ignored until its grammar |
 
@@ -143,12 +143,12 @@ something that does not exist yet (a comment gives the bead). "Ported" is the su
 | `bash/reset_test.go` | 3 | 3 | 0 | 0 |
 | `cpp/scanner_test.go` | 4 | 4 | 0 | 0 |
 | `cpp/reset_test.go` | 2 | 2 | 0 | 0 |
-| `csharp/scanner_test.go` | 5 | 4 | 1 `TestScanState` | 0 |
+| `csharp/scanner_test.go` | 5 | 5 | 0 | 0 |
 | `hcl/scanner_test.go` | 3 | 3 | 0 | 0 |
 | `hcl/reset_test.go` | 3 | 0 | 3 `TestResetIsNew`, `TestReusedScannerSameTree`, `TestResetDropsBigBuffers` | 0 |
 | `javascript/scanner_test.go` | 4 | 4 | 0 | 0 |
-| `julia/scanner_test.go` | 3 | 1 | 2 `TestLanguageWiresScanner`, `TestParseScannerTokens` | 0 |
-| `kotlin/scanner_test.go` | 3 | 2 | 1 `TestScan` | 0 |
+| `julia/scanner_test.go` | 3 | 3 | 0 | 0 |
+| `kotlin/scanner_test.go` | 3 | 3 | 0 | 0 |
 | `lua/scanner_test.go` | 3 | 2 | 1 `TestLongBrackets` | 0 |
 | `php/scanner_test.go` | 4 | 4 | 0 | 0 |
 | `python/scanner_test.go` | 3 | 3 | 0 | 0 |
@@ -158,7 +158,7 @@ something that does not exist yet (a comment gives the bead). "Ported" is the su
 | `scala/scanner_test.go` | 4 | 4 | 0 | 0 |
 | `tsx/scanner_test.go` | 3 | 3 | 0 | 0 |
 | `typescript/scanner_test.go` | 3 | 3 | 0 | 0 |
-| **Total** | **66** | **58** | **8** | **0** |
+| **Total** | **66** | **62** | **4** | **0** |
 
 Beads: `.10` is `gositter-rs-vjz.10` (Task 10, generated `language()`), `.12` is `gositter-rs-vjz.12`
 (Task 12, `scan` and the `ExternalScanner` impl), `gositter-rs-2f0.11` is the runtime parser (the

@@ -476,5 +476,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (4818208, 2184);
 pub static SYMBOL_NAMES: &[&str] = &["end", "_alpha_identifier", "enum", ":", "{", "}", "case", ",", "package", ".", "object", "import", "export", "*", "_", "given", "=>", "as", "class", "trait", "[", "]", "+", "-", "<:", ">:", "<%", "end", "if", "while", "for", "match", "try", "new", "this", "extension", "val", "@", "=", "var", "type", "def", "opaque", "with", "abstract", "final", "sealed", "implicit", "lazy", "override", "private", "protected", "inline", "infix", "into", "open", "tracked", "transparent", "extends", "derives", "(", "using", ")", ";", "#", "?=>", "=>>", "|", "else", "then", "match", "catch", "finally", "macro", "!", "~", "$", "'", "identifier", "_backquoted_id", "operator_identifier", "integer_literal", "floating_point_literal", "true", "false", "character_literal", "escape_sequence", "\"", "\"\"\"", "escape_sequence", "null_literal", "return", "throw", "do", "yield", "<-", "comment", "//", "_comment_text", ">", "using_directive_key", "using_directive_value", "/*", "block_comment_token1", "*/", "_automatic_semicolon", "_indent", "_outdent", "_comma_outdent", "_simple_string_start", "_simple_string_middle", "_simple_multiline_string_start", "_interpolated_string_middle", "_interpolated_multiline_string_middle", "identifier", "_raw_string_middle", "_raw_string_multiline_middle", "_single_line_string_end", "_multiline_string_end", "error_sentinel", "compilation_unit", "_top_level_definition", "enum_definition", "_enum_block", "enum_body", "enum_case_definitions", "simple_enum_case", "full_enum_case", "_full_enum_def", "package_clause", "package_identifier", "package_object", "import_declaration", "export_declaration", "_namespace_expression", "namespace_wildcard", "_namespace_given_by_type", "namespace_selectors", "arrow_renamed_identifier", "as_renamed_identifier", "object_definition", "_object_definition", "class_definition", "_class_definition", "_definition_body", "_class_constructor", "trait_definition", "type_parameters", "_variant_type_parameter", "covariant_type_parameter", "contravariant_type_parameter", "_type_parameter", "upper_bound", "lower_bound", "view_bound", "_context_bounds", "context_bound", "template_body", "_indented_template_body", "_braced_template_body", "_braced_template_body1", "_braced_template_body2", "with_template_body", "_extension_template_body", "_end_marker", "self_type", "_self_type_ascription", "annotation", "val_definition", "val_declaration", "_start_val", "var_declaration", "var_definition", "_start_var", "type_definition", "_type_constructor", "function_definition", "function_declaration", "_function_declaration", "_function_constructor", "opaque_modifier", "extension_definition", "given_definition", "_given_sig", "_given_conditional", "_given_constructor", "_structural_instance", "_constructor_application", "_constructor_applications", "modifiers", "access_modifier", "access_qualifier", "inline_modifier", "infix_modifier", "into_modifier", "open_modifier", "tracked_modifier", "transparent_modifier", "extends_clause", "derives_clause", "class_parameters", "parameters", "_using_parameters_clause", "class_parameter", "parameter", "name_and_type", "_block", "_indentable_expression", "block", "indented_block", "indented_cases", "_type", "_annotated_type", "annotated_type", "_simple_type", "applied_constructor_type", "compound_type", "_structural_type", "_refinement", "_infix_type_choice", "infix_type", "tuple_type", "named_tuple_type", "singleton_type", "stable_type_identifier", "stable_identifier", "generic_type", "projected_type", "match_type", "type_case_clause", "function_type", "_arrow_then_type", "parameter_types", "lazy_parameter_type", "repeated_parameter_type", "_type_identifier", "type_lambda", "case_class_pattern", "infix_pattern", "capture_pattern", "repeat_pattern", "typed_pattern", "given_pattern", "alternative_pattern", "tuple_pattern", "named_pattern", "named_tuple_pattern", "expression", "_simple_expression", "_single_lambda_param", "lambda_expression", "lambda_expression", "if_expression", "_if_condition", "match_expression", "_dot_match_expression", "try_expression", "catch_clause", "_expr_case_clause", "finally_clause", "binding", "bindings", "case_block", "case_clause", "_case_pattern", "guard", "assignment_expression", "generic_function", "call_expression", "colon_argument", "field_expression", "instance_expression", "ascription_expression", "infix_expression", "postfix_expression", "_postfix_expression_choice", "macro_body", "prefix_expression", "tuple_expression", "parenthesized_expression", "type_arguments", "arguments", "_exprs_in_parens", "splice_expression", "quote_expression", "identifier", "_soft_identifier", "identifiers", "wildcard", "_non_null_literal", "literal_type", "boolean_literal", "interpolated_string_expression", "_dollar_escape", "_aliased_interpolation_identifier", "interpolation", "interpolated_string", "interpolated_string", "string", "unit", "return_expression", "throw_expression", "while_expression", "do_while_expression", "for_expression", "enumerators", "enumerator", "_shebang", "comment", "using_directive", "block_comment", "compilation_unit_repeat1", "enum_definition_repeat1", "_enum_block_repeat1", "enum_case_definitions_repeat1", "_full_enum_def_repeat1", "package_identifier_repeat1", "import_declaration_repeat1", "namespace_selectors_repeat1", "_class_constructor_repeat1", "type_parameters_repeat1", "_type_parameter_repeat1", "_context_bounds_repeat1", "_context_bounds_repeat2", "annotation_repeat1", "val_declaration_repeat1", "_function_constructor_repeat1", "extension_definition_repeat1", "given_definition_repeat1", "_given_constructor_repeat1", "_constructor_applications_repeat1", "_constructor_applications_repeat2", "modifiers_repeat1", "derives_clause_repeat1", "class_parameters_repeat1", "class_parameters_repeat2", "parameters_repeat1", "_block_repeat1", "indented_cases_repeat1", "compound_type_repeat1", "tuple_type_repeat1", "named_tuple_type_repeat1", "match_type_repeat1", "type_lambda_repeat1", "case_class_pattern_repeat1", "case_class_pattern_repeat2", "bindings_repeat1", "tuple_expression_repeat1", "identifiers_repeat1", "interpolated_string_repeat1", "interpolated_string_repeat2", "_raw_string_repeat1", "_raw_string_repeat2", "string_repeat1", "enumerators_repeat1", "enumerator_repeat1", "block_comment_repeat1", "_end_ident", "given_conditional", "refinement", "structural_type", "type_identifier"];
 pub static FIELD_NAMES: &[&str] = &["", "alias", "alternative", "arguments", "base", "body", "bound", "class_parameters", "condition", "consequence", "default_value", "derive", "enumerators", "extend", "extra", "field", "function", "interpolator", "lambda_start", "left", "name", "operator", "parameter_types", "parameters", "path", "pattern", "return_type", "right", "selector", "type", "type_arguments", "type_parameters", "value"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "scala",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 26, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

@@ -1,43 +1,18 @@
-//! Lexer emitter: the body of `grammars/<g>/lex.rs` in two forms, and `lex.bin` for the table form.
+//! Lexer emitter: the body of `grammars/<g>/lex.rs`.
 //!
-//! Both forms follow the Go lexer gositter emits (`emit.go:254-377`, `run.go`): a state does its
-//! run set first (the self-loop `advance_run`), then its statements in C order. A jump advances
-//! (or skips) and restarts at the top with a fresh lookahead and `eof`; `Accept` sets the result,
-//! the symbol and the mark in that order; `End` returns the result.
+//! It follows the Go lexer gositter emits (`emit.go:254-377`, `run.go`): a state does its run set
+//! first (the self-loop `advance_run`), then its statements in C order. A jump advances (or skips)
+//! and restarts at the top with a fresh lookahead and `eof`; `Accept` sets the result, the symbol
+//! and the mark in that order; `End` returns the result.
 //!
-//! The code form is `loop { match state { N => { ... } _ => return false } }`. The table form is
-//! `run_table` (in `grammars/lex.rs`) over `lex.bin`, which holds one region per lex function
-//! (`ts_lex`, then `ts_lex_keywords` if the grammar has it). All numbers are little-endian:
-//!
-//! ```text
-//! region:  u16 ncases
-//!          ncases * { u16 state, u32 offset }   sorted by state; offset from the region start
-//!          records
-//! record:  u16 run          index into the run sets, 0xFFFF for none
-//!          u8  run_skip     the run set skips instead of advancing
-//!          ops, the last is End
-//! op:      u8 0                                          End
-//!          u8 1, u16 symbol                              Accept
-//!          u8 2, u8 flags, u16 target,                   a jump: advance(flags & 1) to target
-//!               u16 n, n * { i32 start, i32 end }        when the lookahead is in the ranges
-//!               [if flags & 2: u16 n, n * { i32, i32 }]  the ranges to use at end of input
-//! ```
-//!
-//! The ranges of a jump are those of `cond::ranges_with` over -1..=0x10FFFF, sorted and disjoint;
-//! an `ADVANCE_MAP` pair is a jump on one value. Without the second list the first one holds at end
-//! of input too. The run sets are the `LEX_RUN_k` statics of `lex.rs`, passed to `run_table`.
+//! The form is `loop { match state { N => { ... } _ => return false } }` (plan Task 9: the code form
+//! beat the table form, `run_table` over a `lex.bin`, which is in git history).
 
 use std::collections::HashMap;
 
-use crate::cond::{CmpOp, Cond, Operand, char_sets, ranges_with, run_sets, set_contains};
+use crate::cond::{CmpOp, Cond, Operand, char_sets, run_sets, set_contains};
 use crate::ctok::GenError;
 use crate::parse::{Grammar, LexCase, LexFunc, Stmt};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LexForm {
-    Code,
-    Table,
-}
 
 type Sets = HashMap<String, Vec<(i32, i32)>>;
 
@@ -281,125 +256,8 @@ fn emit_code(g: &Grammar, sets: &Sets) -> Result<String, GenError> {
     Ok(s)
 }
 
-fn put_u16(b: &mut Vec<u8>, v: usize) -> Result<(), GenError> {
-    let v = u16::try_from(v)
-        .map_err(|_| GenError(format!("lex table: {v} does not fit in 16 bits")))?;
-    b.extend(v.to_le_bytes());
-    Ok(())
-}
-
-fn put_ranges(b: &mut Vec<u8>, r: &[(i32, i32)]) -> Result<(), GenError> {
-    put_u16(b, r.len())?;
-    for (start, end) in r {
-        b.extend(start.to_le_bytes());
-        b.extend(end.to_le_bytes());
-    }
-    Ok(())
-}
-
-fn put_jump(
-    b: &mut Vec<u8>,
-    skip: bool,
-    target: u16,
-    ranges: &[(i32, i32)],
-    at_eof: Option<&[(i32, i32)]>,
-) -> Result<(), GenError> {
-    b.extend([2, u8::from(skip) | (u8::from(at_eof.is_some()) << 1)]);
-    b.extend(target.to_le_bytes());
-    put_ranges(b, ranges)?;
-    at_eof.map_or(Ok(()), |e| put_ranges(b, e))
-}
-
-fn record(g: &Grammar, case: &LexCase, run: RunId, sets: &Sets) -> Result<Vec<u8>, GenError> {
-    let mut b = Vec::new();
-    match run {
-        Some((k, skip)) => {
-            if k >= 0xFFFF {
-                return err(format!("lex table: {k} run sets"));
-            }
-            put_u16(&mut b, k)?;
-            b.push(u8::from(skip));
-        }
-        None => b.extend([0xFF, 0xFF, 0]),
-    }
-    for st in &case.stmts {
-        match st {
-            Stmt::End => b.push(0),
-            Stmt::Accept(name) => {
-                b.push(1);
-                put_u16(&mut b, symbol(g, name)? as usize)?;
-            }
-            Stmt::If { cond, skip, target } => {
-                let r = ranges_with(cond, sets, false);
-                let e = ranges_with(cond, sets, true);
-                put_jump(&mut b, *skip, *target, &r, (e != r).then_some(&e[..]))?;
-            }
-            Stmt::Map(pairs) => {
-                for &(key, target) in pairs {
-                    put_jump(
-                        &mut b,
-                        false,
-                        target,
-                        &[(i32::from(key), i32::from(key))],
-                        None,
-                    )?;
-                }
-            }
-        }
-    }
-    Ok(b)
-}
-
-fn region(g: &Grammar, f: &LexFunc, ids: &[RunId], sets: &Sets) -> Result<Vec<u8>, GenError> {
-    let mut order: Vec<usize> = (0..f.cases.len()).collect();
-    order.sort_by_key(|&i| f.cases[i].state);
-    let head = 2 + 6 * order.len();
-    let (mut dir, mut recs) = (Vec::new(), Vec::new());
-    put_u16(&mut dir, order.len())?;
-    for i in order {
-        dir.extend(f.cases[i].state.to_le_bytes());
-        let off = u32::try_from(head + recs.len())
-            .map_err(|_| GenError("lex table: region larger than 4 GiB".to_string()))?;
-        dir.extend(off.to_le_bytes());
-        recs.extend(record(g, &f.cases[i], ids[i], sets)?);
-    }
-    dir.extend(recs);
-    Ok(dir)
-}
-
-fn emit_table(g: &Grammar, sets: &Sets) -> Result<(String, Vec<u8>), GenError> {
-    let (runs, ids) = run_ids(g, sets);
-    let mut s = "use gositter_grammars::lex::{LexOps, run_table};\n\nstatic DATA: &[u8] = include_bytes!(\"lex.bin\");\n".to_string();
-    for (k, set) in runs.iter().enumerate() {
-        s.push('\n');
-        s.push_str(&run_static(k, set));
-    }
-    let names: Vec<String> = (0..runs.len()).map(|k| format!("&LEX_RUN_{k}")).collect();
-    s.push_str(&format!(
-        "\nstatic LEX_RUNS: [&[bool; 256]; {}] = [{}];\n",
-        runs.len(),
-        names.join(", ")
-    ));
-    let mut bin = Vec::new();
-    for (f, ids) in g.lex_fns.iter().zip(&ids) {
-        let name = fn_name(f)?;
-        let data = if bin.is_empty() {
-            "DATA".to_string()
-        } else {
-            format!("&DATA[{}..]", bin.len())
-        };
-        s.push_str(&format!(
-            "\n// {}\npub fn {name}<L: LexOps>(l: &mut L, state: u16) -> bool {{\n    run_table({data}, &LEX_RUNS, l, state)\n}}\n",
-            f.cname
-        ));
-        bin.extend(region(g, f, ids, sets)?);
-    }
-    Ok((s, bin))
-}
-
-/// The text of `lex.rs` after its header lines, and for `Table` the bytes of `lex.bin` (empty for
-/// `Code`).
-pub fn emit_lex(g: &Grammar, form: LexForm) -> Result<(String, Vec<u8>), GenError> {
+/// The text of `lex.rs` after its header lines.
+pub fn emit_lex(g: &Grammar) -> Result<String, GenError> {
     for st in g
         .lex_fns
         .iter()
@@ -410,11 +268,7 @@ pub fn emit_lex(g: &Grammar, form: LexForm) -> Result<(String, Vec<u8>), GenErro
             check_lits(cond)?;
         }
     }
-    let sets = char_sets(g);
-    match form {
-        LexForm::Code => Ok((emit_code(g, &sets)?, Vec::new())),
-        LexForm::Table => emit_table(g, &sets),
-    }
+    emit_code(g, &char_sets(g))
 }
 
 #[cfg(test)]
@@ -444,28 +298,11 @@ mod tests {
     // Go never adds 1 to the literal (run.go value()), so i64::MAX must not panic; it is refused
     // like Go's lex.go, which does not compile `lookahead < <literal over int32>`.
     #[test]
-    fn literal_outside_int32_is_refused_in_both_forms() {
+    fn literal_outside_int32_is_refused() {
         for v in [i64::MAX, i64::from(i32::MAX) + 1, i64::from(i32::MIN) - 1] {
-            for form in [LexForm::Code, LexForm::Table] {
-                let e = emit_lex(&with_lit(v), form).unwrap_err();
-                assert!(e.0.contains("does not fit int32"), "{v}: {}", e.0);
-            }
+            let e = emit_lex(&with_lit(v)).unwrap_err();
+            assert!(e.0.contains("does not fit int32"), "{v}: {}", e.0);
         }
-        for form in [LexForm::Code, LexForm::Table] {
-            emit_lex(&with_lit(i64::from(i32::MAX)), form).unwrap();
-        }
-    }
-
-    // 0xFFFF is the "no run" sentinel of run_table; emit.go:288-316 has no such index limit.
-    #[test]
-    fn run_index_sentinel_is_refused() {
-        let g = crate::parse::parse_grammar(MINI).unwrap();
-        let case = LexCase {
-            state: 0,
-            stmts: vec![Stmt::End],
-        };
-        let e = record(&g, &case, Some((0xFFFF, false)), &Sets::new()).unwrap_err();
-        assert!(e.0.contains("65535 run sets"));
-        assert!(record(&g, &case, Some((0xFFFE, false)), &Sets::new()).is_ok());
+        emit_lex(&with_lit(i64::from(i32::MAX))).unwrap();
     }
 }

@@ -16,6 +16,11 @@ gositter-treedump = { path = "treedump" }
 [lints.rust]
 unsafe_code = "deny"
 
+# The Task 9 lexer-form decision was measured with this profile; graphify-rs uses the same.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
 # gengrammar (parser.c -> tables) and gositter-grammars (21 grammars) are owned by the grammar
 # stream; see docs/superpowers/plans/2026-11-13-grammars.md.
 [workspace]

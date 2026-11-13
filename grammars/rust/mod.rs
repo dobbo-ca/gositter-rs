@@ -458,5 +458,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (1065272, 110);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", ";", "macro_rules!", "(", ")", "[", "]", "{", "}", "=>", ":", "$", "token_repetition_pattern_token1", "+", "*", "?", "block", "expr", "expr_2021", "ident", "item", "lifetime", "literal", "meta", "pat", "pat_param", "path", "stmt", "tt", "ty", "vis", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "primitive_type", "-", "/", "%", "^", "!", "&", "|", "&&", "||", "<<", ">>", "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "<<=", ">>=", "=", "==", "!=", ">", "<", ">=", "<=", "@", "_", ".", "..", "...", "..=", ",", "::", "->", "#", "'", "as", "async", "await", "break", "const", "continue", "default", "enum", "fn", "for", "gen", "if", "impl", "let", "loop", "match", "mod", "pub", "return", "static", "struct", "trait", "type", "union", "unsafe", "use", "where", "while", "extern", "ref", "else", "in", "<", "dyn", "mutable_specifier", "raw", "yield", "move", "try", "integer_literal", "\"", "char_literal", "escape_sequence", "true", "false", "//", "line_comment_token1", "line_comment_token2", "line_comment_token3", "!", "/", "/*", "*/", "shebang", "self", "super", "crate", "metavariable", "string_content", "\"", "_raw_string_literal_start", "string_content", "_raw_string_literal_end", "float_literal", "outer_doc_comment_marker", "inner_doc_comment_marker", "_block_comment_content", "doc_comment", "_error_sentinel", "source_file", "_statement", "empty_statement", "expression_statement", "macro_definition", "macro_rule", "_token_pattern", "token_tree_pattern", "token_binding_pattern", "token_repetition_pattern", "fragment_specifier", "token_tree", "token_repetition", "attribute_item", "inner_attribute_item", "attribute", "mod_item", "foreign_mod_item", "declaration_list", "struct_item", "union_item", "enum_item", "enum_variant_list", "enum_variant", "field_declaration_list", "field_declaration", "ordered_field_declaration_list", "extern_crate_declaration", "const_item", "static_item", "type_item", "function_item", "function_signature_item", "function_modifiers", "where_clause", "where_predicate", "impl_item", "trait_item", "associated_type", "trait_bounds", "higher_ranked_trait_bound", "removed_trait_bound", "type_parameters", "const_parameter", "type_parameter", "lifetime_parameter", "let_declaration", "use_declaration", "_use_clause", "scoped_use_list", "use_list", "use_as_clause", "use_wildcard", "parameters", "self_parameter", "variadic_parameter", "parameter", "extern_modifier", "visibility_modifier", "_type", "bracketed_type", "qualified_type", "lifetime", "array_type", "for_lifetimes", "function_type", "tuple_type", "unit_type", "generic_function", "generic_type", "generic_type_with_turbofish", "bounded_type", "use_bounds", "type_arguments", "type_binding", "reference_type", "pointer_type", "never_type", "abstract_type", "dynamic_type", "_expression_except_range", "_expression", "macro_invocation", "token_tree", "_delim_tokens", "_non_delim_token", "scoped_identifier", "scoped_type_identifier", "scoped_type_identifier", "range_expression", "unary_expression", "try_expression", "reference_expression", "binary_expression", "assignment_expression", "compound_assignment_expr", "type_cast_expression", "return_expression", "yield_expression", "call_expression", "arguments", "array_expression", "parenthesized_expression", "tuple_expression", "unit_expression", "struct_expression", "field_initializer_list", "shorthand_field_initializer", "field_initializer", "base_field_initializer", "if_expression", "let_condition", "_let_chain", "_condition", "else_clause", "match_expression", "match_block", "match_arm", "match_arm", "match_pattern", "while_expression", "loop_expression", "for_expression", "const_block", "closure_expression", "closure_parameters", "label", "break_expression", "continue_expression", "index_expression", "await_expression", "field_expression", "unsafe_block", "async_block", "gen_block", "try_block", "block", "_pattern", "generic_pattern", "tuple_pattern", "slice_pattern", "tuple_struct_pattern", "struct_pattern", "field_pattern", "remaining_field_pattern", "mut_pattern", "range_pattern", "ref_pattern", "captured_pattern", "reference_pattern", "or_pattern", "_literal", "_literal_pattern", "negative_literal", "string_literal", "raw_string_literal", "boolean_literal", "line_comment", "_line_doc_comment_marker", "inner_doc_comment_marker", "outer_doc_comment_marker", "block_comment", "_block_doc_comment_marker", "source_file_repeat1", "macro_definition_repeat1", "token_tree_pattern_repeat1", "token_tree_repeat1", "_non_special_token_repeat1", "declaration_list_repeat1", "enum_variant_list_repeat1", "enum_variant_list_repeat2", "field_declaration_list_repeat1", "ordered_field_declaration_list_repeat1", "function_modifiers_repeat1", "where_clause_repeat1", "trait_bounds_repeat1", "type_parameters_repeat1", "use_list_repeat1", "parameters_repeat1", "for_lifetimes_repeat1", "tuple_type_repeat1", "use_bounds_repeat1", "type_arguments_repeat1", "delim_token_tree_repeat1", "arguments_repeat1", "tuple_expression_repeat1", "field_initializer_list_repeat1", "match_block_repeat1", "match_arm_repeat1", "closure_parameters_repeat1", "tuple_pattern_repeat1", "slice_pattern_repeat1", "struct_pattern_repeat1", "string_literal_repeat1", "field_identifier", "let_chain", "shorthand_field_identifier", "type_identifier"];
 pub static FIELD_NAMES: &[&str] = &["", "alias", "alternative", "argument", "arguments", "body", "bounds", "condition", "consequence", "default_type", "doc", "element", "field", "function", "inner", "left", "length", "list", "macro", "name", "operator", "outer", "parameters", "path", "pattern", "return_type", "right", "trait", "type", "type_arguments", "type_parameters", "value"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "rust",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 24, patch_version: 1 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

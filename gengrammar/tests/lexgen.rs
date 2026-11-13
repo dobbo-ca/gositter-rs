@@ -1,4 +1,4 @@
-use gengrammar::lexgen::{LexForm, emit_lex};
+use gengrammar::lexgen::emit_lex;
 use gengrammar::parse::parse_grammar;
 
 const MINI: &str = include_str!("../../testdata/gengrammar/mini.c");
@@ -23,8 +23,7 @@ fn in_order(text: &str, needles: &[&str]) {
 #[test]
 fn code_form_of_mini() {
     let g = parse_grammar(MINI).unwrap();
-    let (rs, bin) = emit_lex(&g, LexForm::Code).unwrap();
-    assert!(bin.is_empty());
+    let rs = emit_lex(&g).unwrap();
     assert!(!rs.contains("lex_keywords"));
     in_order(
         &rs,
@@ -56,159 +55,5 @@ fn code_form_of_mini() {
                 l.mark_end(); return result; }",
             "_ => return false,",
         ],
-    );
-}
-
-// The test's own reader of lex.bin, written from the format in lexgen.rs.
-#[derive(Debug, PartialEq)]
-enum Op {
-    End,
-    Accept(u16),
-    If {
-        skip: bool,
-        target: u16,
-        ranges: Vec<(i32, i32)>,
-        at_eof: Option<Vec<(i32, i32)>>,
-    },
-}
-
-#[derive(Debug, PartialEq)]
-struct Rec {
-    state: u16,
-    run: Option<(u16, bool)>,
-    ops: Vec<Op>,
-}
-
-fn u16_at(b: &[u8], o: usize) -> u16 {
-    u16::from_le_bytes([b[o], b[o + 1]])
-}
-
-fn i32_at(b: &[u8], o: usize) -> i32 {
-    i32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]])
-}
-
-fn ranges_at(b: &[u8], o: usize) -> (Vec<(i32, i32)>, usize) {
-    let n = u16_at(b, o) as usize;
-    let v = (0..n)
-        .map(|i| (i32_at(b, o + 2 + 8 * i), i32_at(b, o + 6 + 8 * i)))
-        .collect();
-    (v, o + 2 + 8 * n)
-}
-
-/// The records of the region of `b` that starts at `base`, in directory (state) order.
-fn region(b: &[u8], base: usize) -> Vec<Rec> {
-    let r = &b[base..];
-    let n = u16_at(r, 0) as usize;
-    (0..n)
-        .map(|i| {
-            let d = 2 + 6 * i;
-            let state = u16_at(r, d);
-            let mut p = u32::from_le_bytes([r[d + 2], r[d + 3], r[d + 4], r[d + 5]]) as usize;
-            let run = u16_at(r, p);
-            let run = (run != 0xFFFF).then(|| (run, r[p + 2] != 0));
-            p += 3;
-            let mut ops = Vec::new();
-            loop {
-                let tag = r[p];
-                p += 1;
-                match tag {
-                    0 => {
-                        ops.push(Op::End);
-                        break;
-                    }
-                    1 => {
-                        ops.push(Op::Accept(u16_at(r, p)));
-                        p += 2;
-                    }
-                    2 => {
-                        let flags = r[p];
-                        let target = u16_at(r, p + 1);
-                        let (ranges, q) = ranges_at(r, p + 3);
-                        p = q;
-                        let mut at_eof = None;
-                        if flags & 2 != 0 {
-                            let (v, q) = ranges_at(r, p);
-                            at_eof = Some(v);
-                            p = q;
-                        }
-                        ops.push(Op::If {
-                            skip: flags & 1 != 0,
-                            target,
-                            ranges,
-                            at_eof,
-                        });
-                    }
-                    t => panic!("bad op tag {t}"),
-                }
-            }
-            Rec { state, run, ops }
-        })
-        .collect()
-}
-
-fn jump(skip: bool, target: u16, ranges: &[(i32, i32)]) -> Op {
-    Op::If {
-        skip,
-        target,
-        ranges: ranges.to_vec(),
-        at_eof: None,
-    }
-}
-
-#[test]
-fn table_form_of_mini() {
-    const MAX: i32 = 0x10FFFF;
-    let g = parse_grammar(MINI).unwrap();
-    let (rs, bin) = emit_lex(&g, LexForm::Table).unwrap();
-    in_order(
-        &rs,
-        &[
-            "use gositter_grammars::lex::{LexOps, run_table};",
-            "static DATA: &[u8] = include_bytes!(\"lex.bin\");",
-            "static LEX_RUN_0: [bool; 256] = [",
-            "static LEX_RUNS: [&[bool; 256]; 1] = [&LEX_RUN_0];",
-            "pub fn lex<L: LexOps>(l: &mut L, state: u16) -> bool {
-                run_table(DATA, &LEX_RUNS, l, state) }",
-        ],
-    );
-    assert!(!rs.contains("lex_keywords"));
-    assert!(!rs.contains("SET_1"), "the table form has no sets: {rs}");
-    let recs = region(&bin, 0);
-    assert_eq!(
-        recs,
-        [
-            Rec {
-                state: 0,
-                // the skip run on LEX_RUN_0
-                run: Some((0, true)),
-                ops: vec![
-                    // `if (eof)`: no lookahead matches when not at end, every one at end
-                    Op::If {
-                        skip: false,
-                        target: 1,
-                        ranges: vec![],
-                        at_eof: Some(vec![(-1, MAX)]),
-                    },
-                    jump(false, 2, &[(34, 34)]),
-                    jump(false, 3, &[(92, 92)]),
-                    jump(false, 4, &[(0xa0, 0xa0)]),
-                    jump(true, 0, &[(9, 13), (32, 32)]),
-                    // `!eof && set_contains(..)`: never at end of input
-                    Op::If {
-                        skip: false,
-                        target: 5,
-                        ranges: vec![(97, 122), (0xaa, 0xaa)],
-                        at_eof: Some(vec![]),
-                    },
-                    jump(false, 6, &[(-1, -1), (1, 39), (42, MAX)]),
-                    Op::End,
-                ],
-            },
-            Rec {
-                state: 1,
-                run: None,
-                ops: vec![Op::Accept(0), Op::End],
-            },
-        ]
     );
 }

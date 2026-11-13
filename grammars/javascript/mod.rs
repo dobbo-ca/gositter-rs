@@ -371,5 +371,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (375488, 80);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", "hash_bang_line", "export", "*", "default", "as", "{", ",", "}", "import", "from", "with", "var", "let", "const", "using", "await", "of", "else", "if", "switch", "for", "(", ";", ")", "in", "while", "do", "try", "break", "continue", "debugger", "return", "throw", ":", "case", "catch", "finally", "yield", "=", "[", "]", "html_character_reference", "<", ">", "identifier", ".", "</", "/>", "\"", "'", "string_fragment", "string_fragment", "class", "extends", "async", "function", "=>", "optional_chain", "new", "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", ">>=", ">>>=", "<<=", "**=", "&&=", "||=", "??=", "...", "&&", "||", ">>", ">>>", "<<", "&", "^", "|", "+", "-", "/", "%", "**", "<=", "==", "===", "!=", "!==", ">=", "??", "instanceof", "!", "~", "typeof", "void", "delete", "++", "--", "string_fragment", "string_fragment", "escape_sequence", "comment", "`", "${", "/", "regex_pattern", "regex_flags", "number", "private_property_identifier", "target", "meta", "this", "super", "true", "false", "null", "undefined", "@", "static", "static get", "get", "set", "_automatic_semicolon", "string_fragment", "?", "html_comment", "jsx_text", "program", "export_statement", "namespace_export", "export_clause", "export_specifier", "_module_export_name", "declaration", "import", "import_statement", "import_clause", "_from_clause", "namespace_import", "named_imports", "import_specifier", "import_attribute", "statement", "expression_statement", "variable_declaration", "lexical_declaration", "using_declaration", "variable_declarator", "statement_block", "else_clause", "if_statement", "switch_statement", "for_statement", "for_in_statement", "_for_header", "while_statement", "do_statement", "try_statement", "with_statement", "break_statement", "continue_statement", "debugger_statement", "return_statement", "throw_statement", "empty_statement", "labeled_statement", "switch_body", "switch_case", "switch_default", "catch_clause", "finally_clause", "parenthesized_expression", "expression", "primary_expression", "yield_expression", "object", "object_pattern", "assignment_pattern", "object_assignment_pattern", "array", "array_pattern", "jsx_element", "jsx_expression", "jsx_opening_element", "member_expression", "jsx_namespace_name", "jsx_closing_element", "jsx_self_closing_element", "jsx_attribute", "string", "class", "class_declaration", "class_heritage", "function_expression", "function_declaration", "generator_function", "generator_function_declaration", "arrow_function", "call_expression", "new_expression", "await_expression", "member_expression", "subscript_expression", "assignment_expression", "_augmented_assignment_lhs", "augmented_assignment_expression", "_initializer", "_destructuring_pattern", "spread_element", "ternary_expression", "binary_expression", "unary_expression", "update_expression", "sequence_expression", "string", "template_string", "template_substitution", "regex", "meta_property", "arguments", "decorator", "member_expression", "call_expression", "class_body", "field_definition", "formal_parameters", "class_static_block", "pattern", "rest_pattern", "method_definition", "pair", "pair_pattern", "_property_name", "computed_property_name", "program_repeat1", "export_statement_repeat1", "export_clause_repeat1", "named_imports_repeat1", "variable_declaration_repeat1", "switch_body_repeat1", "object_repeat1", "object_pattern_repeat1", "array_repeat1", "array_pattern_repeat1", "jsx_element_repeat1", "jsx_opening_element_repeat1", "_jsx_string_repeat1", "_jsx_string_repeat2", "sequence_expression_repeat1", "string_repeat1", "string_repeat2", "template_string_repeat1", "class_body_repeat1", "formal_parameters_repeat1", "property_identifier", "shorthand_property_identifier", "shorthand_property_identifier_pattern", "statement_identifier"];
 pub static FIELD_NAMES: &[&str] = &["", "alias", "alternative", "argument", "arguments", "attribute", "body", "close_tag", "condition", "consequence", "constructor", "declaration", "decorator", "finalizer", "flags", "function", "handler", "increment", "index", "initializer", "key", "kind", "label", "left", "member", "name", "object", "open_tag", "operator", "optional_chain", "parameter", "parameters", "pattern", "property", "right", "source", "value"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "javascript",
+    reserved_words: gositter::U16s::at(TABLES, TS_RESERVED_WORDS.0, TS_RESERVED_WORDS.1),
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 25, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

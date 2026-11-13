@@ -66,8 +66,8 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     go mod download && go vet ./... && go build -o /usr/local/bin/tables ./tables \
     && tables /oracle-out
 
-# The lex oracle (plan Task 8): gositter v0.2.0's generated Go lex functions of bash, cpp, json and
-# verilog on the mock lexer, written to /oracle-out/<g>.lex and <g>.lextext by gengrammar/oracle/lex
+# The lex oracle (plan Task 8): gositter v0.2.0's generated Go lex functions of all 21 grammars on the
+# mock lexer, written to /oracle-out/<g>.lex and <g>.lextext by gengrammar/oracle/lex
 # (format in its main.go). They run against a fake gositter package: api.go as it is plus the mock
 # lexer (mock.go) as its Lexer, and each grammar's tables.go, lex.go and language.go with the
 # scanner stubbed, as gositter's cmd/gengrammar/check/run.sh does. Both Go files carry the build tag
@@ -79,7 +79,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     printf 'module github.com/dobbo-ca/gositter\n\ngo 1.25\n' > $fake/gositter/go.mod; \
     cp --no-preserve=mode $mod/api.go $fake/gositter/api.go; \
     cp --no-preserve=mode lex/mock.go $fake/gositter/mock.go; \
-    for g in bash cpp json verilog; do \
+    for g in bash c cpp csharp golang hcl java javascript json julia kotlin lua php python ruby rust scala tsx typescript verilog zig; do \
         mkdir $fake/gositter/grammars/$g; \
         for f in tables lex language; do cp --no-preserve=mode $mod/grammars/$g/$f.go $fake/gositter/grammars/$g/$f.go; done; \
         if grep -q 'New: *newScanner' $mod/grammars/$g/language.go; then \
@@ -98,12 +98,8 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM gen AS grammar-parity
 COPY --from=grammar-oracle /oracle-out /oracle-out
 RUN /gen-target/release/gengrammar --lock grammars/grammars.lock --src /parsers --oracle /oracle-out
-# The lex oracle (plan Task 8) against the Rust lexers: first the committed lex.rs (code form), then
-# the table form, which gengrammar writes over grammars/<g>/lex.rs here (and lex.bin). Its own
+# The lex oracle (plan Task 8) against the committed lex.rs of all 21 grammars (code form). Its own
 # target dir and no cache mount, so nothing stale is reused.
-RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
-    CARGO_TARGET_DIR=/lex-target GRAMMAR_ORACLE=/oracle-out cargo test --locked --release -p gositter-grammars --test oracle_lex
-RUN /gen-target/release/gengrammar --lock grammars/grammars.lock --src /parsers --out grammars --lexer table bash cpp json verilog
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
     CARGO_TARGET_DIR=/lex-target GRAMMAR_ORACLE=/oracle-out cargo test --locked --release -p gositter-grammars --test oracle_lex
 

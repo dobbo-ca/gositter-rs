@@ -18,8 +18,8 @@ fn names(g: &Grammar, table: &str) -> String {
     list.join(", ")
 }
 
-/// The text of `mod.rs`: constants, offsets, names and, with `has_lex` (a `lex.rs` is written), `language()`.
-pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob, has_lex: bool) -> String {
+/// The text of `mod.rs`: constants, offsets, names and `language()`.
+pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob) -> String {
     let mut s = format!("{hdr}\n#![allow(non_upper_case_globals)]\n");
     for en in &g.enums {
         s.push_str(&format!("\n// enum {}\n", en.name));
@@ -57,12 +57,8 @@ pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob, has_lex: boo
         names(g, &info.symbol_names),
         names(g, &info.field_names)
     ));
-    if has_lex {
-        s.push_str("\nconst TABLES: &[u8] = include_bytes!(\"tables.bin\");\n");
-        s.push_str(&language(g, info));
-    } else {
-        s.push_str("\n#[allow(dead_code)] // read by language()\nstatic TABLES: &[u8] = include_bytes!(\"tables.bin\");\n");
-    }
+    s.push_str("\nconst TABLES: &[u8] = include_bytes!(\"tables.bin\");\n");
+    s.push_str(&language(g, info));
     s
 }
 

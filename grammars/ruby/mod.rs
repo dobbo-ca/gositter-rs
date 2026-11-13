@@ -471,5 +471,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (2031816, 1260);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", "program_token1", "uninterpreted", "BEGIN", "{", "}", "END", "def", "(", ")", ".", "::", "end", "rescue", "=", ",", "|", ";", "...", "*", "**", "nil", "&", ":", "class", "<", "module", "return", "yield", "break", "next", "redo", "retry", "if", "unless", "while", "until", "for", "in", "do", "case", "when", "=>", "[", "]", "[", "(", "..", "line", "file", "encoding", "^", "elsif", "else", "then", "begin", "ensure", "::", "&.", "+=", "-=", "*=", "**=", "/=", "||=", "|=", "&&=", "&=", "%=", ">>=", "<<=", "^=", "?", ":", "and", "or", "||", "&&", "<<", ">>", "<=", ">", ">=", "+", "/", "%", "==", "!=", "===", "<=>", "=~", "!~", "defined?", "not", "!", "~", "-", "+@", "-@", "~@", "[]", "[]=", "`", "=", "undef", "alias", "comment", "integer", "float", "i", "ri", "r", "super", "self", "true", "false", "constant", "constant_suffix_token1", "identifier_suffix_token1", "instance_variable", "class_variable", "global_variable", "character", "#{", "string_array_token1", "escape_sequence", "->", "_line_break", "_no_line_break", "simple_symbol", "\"", ":\"", "`", "/", "%w(", "%i(", "_heredoc_body_start", "string_content", "heredoc_content", ")", "heredoc_end", "heredoc_beginning", "&", "*", "-", "-", "-", "*", "<<", "hash_key_symbol", "_identifier_suffix", "_constant_suffix", "**", "**", "[", "_short_interpolation", "program", "block_body", "_statements", "begin_block", "end_block", "_statement", "method", "singleton_method", "_method_rest", "rescue_modifier", "rescue_modifier", "_body_expr", "method_parameters", "method_parameters", "block_parameters", "_formal_parameter", "_simple_formal_parameter", "forward_parameter", "splat_parameter", "hash_splat_parameter", "hash_splat_nil", "block_parameter", "keyword_parameter", "optional_parameter", "class", "superclass", "singleton_class", "module", "return", "yield", "break", "next", "return", "yield", "break", "next", "redo", "retry", "if_modifier", "unless_modifier", "while_modifier", "until_modifier", "rescue_modifier", "while", "until", "for", "in", "do", "case", "case_match", "when", "in_clause", "pattern", "_guard", "if_guard", "unless_guard", "_pattern_top_expr_body", "_array_pattern_n", "_pattern_expr", "as_pattern", "_pattern_expr_alt", "alternative_pattern", "_array_pattern_body", "array_pattern", "_find_pattern_body", "find_pattern", "_hash_pattern_body", "keyword_pattern", "_hash_pattern_any_rest", "hash_pattern", "_pattern_expr_basic", "parenthesized_pattern", "_pattern_value", "range", "_pattern_primitive", "_pattern_lambda", "_pattern_literal", "_keyword_variable", "variable_reference_pattern", "expression_reference_pattern", "_pattern_constant", "scope_resolution", "if", "unless", "elsif", "else", "then", "begin", "ensure", "rescue", "exceptions", "exception_variable", "body_statement", "_body_statement", "_expression", "match_pattern", "test_pattern", "_arg", "unary", "binary", "_primary", "parenthesized_statements", "element_reference", "scope_resolution", "_call", "call", "call", "_chained_command_call", "call", "argument_list", "argument_list", "_argument_list_with_trailing_comma", "_argument", "forward_argument", "splat_argument", "hash_splat_argument", "block_argument", "do_block", "block", "assignment", "assignment", "operator_assignment", "operator_assignment", "conditional", "range", "binary", "binary", "unary", "unary", "unary", "unary", "_literal", "_numeric", "_simple_numeric", "right_assignment_list", "left_assignment_list", "_mlhs", "destructured_left_assignment", "rest_assignment", "_function_identifier", "call", "_lhs", "_variable", "operator", "_method_name", "_nonlocal_variable", "setter", "undef", "alias", "_int_or_float", "complex", "rational", "nil", "hash_key_symbol", "hash_key_symbol", "chained_string", "interpolation", "string", "subshell", "string_array", "symbol_array", "delimited_symbol", "regex", "heredoc_body", "_literal_contents", "array", "hash", "pair", "lambda", "empty_statement", "_terminator", "_statements_repeat1", "parameters_repeat1", "block_parameters_repeat1", "case_repeat1", "case_match_repeat1", "when_repeat1", "_array_pattern_n_repeat1", "alternative_pattern_repeat1", "_hash_pattern_body_repeat1", "exceptions_repeat1", "_body_statement_repeat1", "command_argument_list_repeat1", "_mlhs_repeat1", "undef_repeat1", "chained_string_repeat1", "string_array_repeat1", "symbol_array_repeat1", "heredoc_body_repeat1", "hash_repeat1", "bare_string", "bare_symbol", "destructured_parameter", "lambda_parameters"];
 pub static FIELD_NAMES: &[&str] = &["", "alias", "alternative", "alternatives", "arguments", "begin", "block", "body", "class", "clauses", "condition", "consequence", "else", "end", "exceptions", "guard", "handler", "key", "left", "locals", "method", "name", "object", "operand", "operator", "parameters", "pattern", "receiver", "right", "scope", "superclass", "value", "variable"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "ruby",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::EMPTY,
+    supertype_map_slices: gositter::MapSlices::EMPTY,
+    supertype_map_entries: gositter::U16s::EMPTY,
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 0, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

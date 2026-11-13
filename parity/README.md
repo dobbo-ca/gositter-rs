@@ -174,3 +174,41 @@ tests.
 | `kind_mask_threads` and the other `language::tests` | `src/language.rs` | passing |
 | `node_api_built_tree`, `cursor_built_tree`, `preorder_deep_small_stack` | `src/node/tests.rs` | Task 10b, passing |
 | `go_quote_cases`, `dump_fake_tree`, `sexp_only_up_to_depth_100`, `sampled_rule` | `treedump/tests/dump.rs` | passing |
+
+## Lexer form (grammars plan Task 9)
+
+Decision: **code form** (`lex` and `lex_keywords` as `loop { match state { ... } }`), shipping profile
+`lto = "fat"`, `codegen-units = 1` (the root `Cargo.toml` `[profile.release]`; no per-package override).
+
+Measured by the `lexbench` dispatch runs on branch `port-lexform-5f3b`
+([43435425589](https://github.com/dobbo-ca/gositter-rs/actions/runs/43435425589) and
+[43449978559](https://github.com/dobbo-ca/gositter-rs/actions/runs/43449978559)): the mock byte lexer from
+lex state 0 over gositter v0.2.0 `testdata/regress`, 20 rounds of at least 50 ms each, median MB/s, release
+profile with `lto = "fat"` and `codegen-units = 1` unless noted. Token counts are equal in both forms.
+
+| Run | Form | bash | cpp | verilog | Geomean |
+|---|---|---|---|---|---|
+| 43449978559 | code, cgu=1 | 444.1 | 375.3 | 599.1 | 464.0 |
+| 43449978559 | code, cgu=16 | 426.7 | 411.4 | 652.6 | 485.7 |
+| 43449978559 | table | 27.9 | 30.0 | 42.1 | 32.8 |
+| 43435425589 | code, cgu=1 | 438.7 | 525.2 | 630.0 | 525.5 |
+| 43435425589 | table | 28.3 | 30.7 | 43.0 | 33.4 |
+
+| Build (run 43449978559) | Wall time | Peak RSS | Binary |
+|---|---|---|---|
+| 3 grammars, code | 271.8 s | 508,288 KB | 808,864 B |
+| 3 grammars, table | 2.0 s | 209,632 KB | 1,824,936 B |
+| all 21, code, release (lto fat, cgu=1) | 415.4 s | 869,128 KB | |
+| all 21, code, release cgu=16 | 397.2 s | 873,052 KB | |
+| all 21, code, debug (dev/test profile) | 3.2 s | 923,112 KB | |
+
+Reason: by the agreed rule the faster form wins unless its clean release build exceeds 10 minutes or 8 GB
+peak RSS. The code form is about 14x faster (geomean 464.0 against 32.8 MB/s in the same run), and the
+shipping build of all 21 code-form lexers (415.4 s, 869,128 KB) is inside the guard.
+
+Noise: the runner's noise is large. The same code-form settings gave cpp 525.2 MB/s in one run and 375.3 in
+the other. The gap to the table form is far outside that noise.
+
+Exit: generation is mechanical. If the runtime's parse benchmarks later reverse the result, the grammars are
+regenerated in the other form; the table emitter is in git history (`gengrammar/src/lexgen.rs` before the
+commit that made the code form the only one).

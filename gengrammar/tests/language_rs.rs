@@ -4,11 +4,11 @@ use gengrammar::rust::mod_rs;
 
 const LANG: &str = include_str!("../../testdata/gengrammar/mini_lang.c");
 
-fn mini(has_lex: bool) -> String {
+fn mini() -> String {
     let mut g = parse_grammar(LANG).unwrap();
     let info = check_language(&mut g).unwrap();
     let blob = write_blob(&g, &info);
-    mod_rs("", &g, &info, &blob, has_lex)
+    mod_rs("", &g, &info, &blob)
 }
 
 fn has_line(t: &str, line: &str) {
@@ -16,8 +16,8 @@ fn has_line(t: &str, line: &str) {
 }
 
 #[test]
-fn language_emitted_with_lex() {
-    let t = mini(true);
+fn language_emitted() {
+    let t = mini();
     for pair in [
         "#[rustfmt::skip]\nmod lex;",
         "#[rustfmt::skip]\nmod scanner;",
@@ -51,11 +51,4 @@ fn language_emitted_with_lex() {
     }
     assert!(!t.contains("lex_keywords_main"), "{t}");
     assert!(!t.contains("allow(dead_code)"), "{t}");
-}
-
-#[test]
-fn no_language_without_lex() {
-    let t = mini(false);
-    assert!(!t.contains("LANGUAGE") && !t.contains("mod lex;"), "{t}");
-    has_line(&t, "static TABLES: &[u8] = include_bytes!(\"tables.bin\");");
 }

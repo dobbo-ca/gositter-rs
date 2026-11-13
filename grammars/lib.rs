@@ -11,14 +11,23 @@ pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;
 #[path = "cpp/scanner.rs"]
 mod cpp_scanner;
 #[cfg(test)]
+#[path = "csharp/scanner.rs"]
+mod csharp_scanner;
+#[cfg(test)]
 #[path = "hcl/scanner.rs"]
 mod hcl_scanner;
 #[cfg(test)]
 #[path = "lua/scanner.rs"]
 mod lua_scanner;
 #[cfg(test)]
+#[path = "php/scanner.rs"]
+mod php_scanner;
+#[cfg(test)]
 #[path = "python/scanner.rs"]
 mod python_scanner;
 #[cfg(test)]
 #[path = "rust/scanner.rs"]
 mod rust_scanner;
+#[cfg(test)]
+#[path = "scala/scanner.rs"]
+mod scala_scanner;

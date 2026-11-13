@@ -354,6 +354,8 @@ pub struct LanguageTables {
 /// state.
 pub struct Language {
     pub tables: LanguageTables,
+    // Read by the language code of plan Task 7b; until then only constructed.
+    #[allow(dead_code)]
     pub(crate) derived: crate::language::Derived,
 }
 

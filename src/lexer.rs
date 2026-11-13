@@ -162,11 +162,14 @@ mod tests {
         }
     }
 
+    /// (name, source, (code point, width) of each character).
+    type DecodeCase<'a> = (&'a str, &'a [u8], &'a [(i32, u32)]);
+
     #[test]
     #[ignore = "gositter-rs-2f0.6"]
     fn lexer_decode() {
         let bad = (DECODE_ERROR, 1);
-        let cases: &[(&str, &[u8], &[(i32, u32)])] = &[
+        let cases: &[DecodeCase<'_>] = &[
             ("ascii", b"ab", &[('a' as i32, 1), ('b' as i32, 1)]),
             (
                 "nul byte is not eof",

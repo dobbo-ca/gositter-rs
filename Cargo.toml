@@ -10,6 +10,7 @@ publish = false
 [dependencies]
 
 [dev-dependencies]
+gositter-grammars = { path = "grammars" }
 gositter-treedump = { path = "treedump" }
 
 [lints.rust]

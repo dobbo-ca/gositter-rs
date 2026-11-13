@@ -1,42 +1,119 @@
 //! Port of tree-sitter-julia v0.25.0 `src/scanner.c` (gositter `grammars/julia/scanner.go`). The scanner has no state: C create returns NULL, serialize writes nothing and
-//! deserialize ignores its input. `scan` waits for the runtime Lexer (Task 12).
+//! deserialize ignores its input. `scan` is ported below.
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Scanner;
 
 // enum TokenType
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_BLOCK_COMMENT_REST: usize = 0;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_IMMEDIATE_PAREN: usize = 1;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_IMMEDIATE_BRACKET: usize = 2;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_IMMEDIATE_BRACE: usize = 3;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_IMMEDIATE_STRING_START: usize = 4;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_IMMEDIATE_COMMAND_START: usize = 5;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_CMD1: usize = 6;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_CMD1_RAW: usize = 7;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_CMD3: usize = 8;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_CMD3_RAW: usize = 9;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_STR1: usize = 10;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_STR1_RAW: usize = 11;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_STR3: usize = 12;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_CONTENT_STR3_RAW: usize = 13;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_END_CMD: usize = 14;
-#[allow(dead_code)] // used by scan (Task 12)
 const TOK_END_STR: usize = 15;
+
+// scan_content
+fn scan_content(
+    lexer: &mut gositter::Lexer<'_>,
+    content_symbol: gositter::Symbol,
+    end_char: i32,
+    n_delim: u32,
+    interp: bool,
+) -> bool {
+    let mut end_symbol = TOK_END_CMD as gositter::Symbol;
+    if end_char == '"' as i32 {
+        end_symbol = TOK_END_STR as gositter::Symbol;
+    }
+    let mut has_content = false;
+    loop {
+        let mut next = lexer.lookahead;
+        if next == 0 {
+            break;
+        }
+        lexer.mark_end();
+        if interp && (next == '$' as i32 || next == '\\' as i32) {
+            lexer.result_symbol = content_symbol;
+            return has_content;
+        } else if next == '\\' as i32 {
+            // Raw strings: only \<delimiter> and \\ end the content.
+            lexer.advance(false);
+            next = lexer.lookahead;
+            if next == end_char || next == '\\' as i32 {
+                lexer.result_symbol = content_symbol;
+                return has_content;
+            }
+        } else {
+            let mut is_end_delimiter = true;
+            for _ in 1..=n_delim {
+                if lexer.lookahead == end_char {
+                    lexer.advance(false);
+                } else {
+                    is_end_delimiter = false;
+                    break;
+                }
+            }
+            if is_end_delimiter {
+                if has_content {
+                    lexer.result_symbol = content_symbol;
+                    return true;
+                }
+                lexer.mark_end();
+                lexer.result_symbol = end_symbol;
+                return true;
+            }
+        }
+        lexer.advance(false);
+        has_content = true;
+    }
+    false
+}
+
+// scan_block_comment
+fn scan_block_comment(lexer: &mut gositter::Lexer<'_>) -> bool {
+    // The first `#=` is scanned by the generated lexer.
+    let mut after_eq = false;
+    let mut nesting_depth = 1u32;
+    loop {
+        match char::from_u32(lexer.lookahead as u32) {
+            Some('=') => {
+                lexer.advance(false);
+                after_eq = true;
+            }
+            Some('#') => {
+                lexer.advance(false);
+                if after_eq {
+                    after_eq = false;
+                    nesting_depth -= 1;
+                    if nesting_depth == 0 {
+                        lexer.result_symbol = TOK_BLOCK_COMMENT_REST as gositter::Symbol;
+                        return true;
+                    }
+                } else {
+                    after_eq = false;
+                    if lexer.lookahead == '=' as i32 {
+                        lexer.advance(false);
+                        nesting_depth += 1;
+                    }
+                }
+            }
+            Some('\0') => return false,
+            _ => {
+                lexer.advance(false);
+                after_eq = false;
+            }
+        }
+    }
+}
 
 impl Scanner {
     // tree_sitter_julia_external_scanner_create
@@ -51,6 +128,138 @@ impl Scanner {
 
     // tree_sitter_julia_external_scanner_deserialize
     pub fn deserialize(&mut self, _buf: &[u8]) {}
+}
+
+impl gositter::ExternalScanner for Scanner {
+    // tree_sitter_julia_external_scanner_scan
+    fn scan(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        if valid_symbols[TOK_IMMEDIATE_PAREN] && lexer.lookahead == '(' as i32 {
+            lexer.result_symbol = TOK_IMMEDIATE_PAREN as gositter::Symbol;
+            return true;
+        } else if valid_symbols[TOK_IMMEDIATE_BRACKET] && lexer.lookahead == '[' as i32 {
+            lexer.result_symbol = TOK_IMMEDIATE_BRACKET as gositter::Symbol;
+            return true;
+        } else if valid_symbols[TOK_IMMEDIATE_BRACE] && lexer.lookahead == '{' as i32 {
+            lexer.result_symbol = TOK_IMMEDIATE_BRACE as gositter::Symbol;
+            return true;
+        } else if valid_symbols[TOK_IMMEDIATE_STRING_START] && lexer.lookahead == '"' as i32 {
+            lexer.result_symbol = TOK_IMMEDIATE_STRING_START as gositter::Symbol;
+            return true;
+        } else if valid_symbols[TOK_IMMEDIATE_COMMAND_START] && lexer.lookahead == '`' as i32 {
+            lexer.result_symbol = TOK_IMMEDIATE_COMMAND_START as gositter::Symbol;
+            return true;
+        }
+
+        if valid_symbols[TOK_BLOCK_COMMENT_REST] && scan_block_comment(lexer) {
+            return true;
+        }
+
+        // Each failed attempt leaves the lexer advanced; the next one starts
+        // from there, as in C.
+        if valid_symbols[TOK_CONTENT_STR1]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_STR1 as gositter::Symbol,
+                '"' as i32,
+                1,
+                true,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_STR3]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_STR3 as gositter::Symbol,
+                '"' as i32,
+                3,
+                true,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_CMD1]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_CMD1 as gositter::Symbol,
+                '`' as i32,
+                1,
+                true,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_CMD3]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_CMD3 as gositter::Symbol,
+                '`' as i32,
+                3,
+                true,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_STR1_RAW]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_STR1_RAW as gositter::Symbol,
+                '"' as i32,
+                1,
+                false,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_STR3_RAW]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_STR3_RAW as gositter::Symbol,
+                '"' as i32,
+                3,
+                false,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_CMD1_RAW]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_CMD1_RAW as gositter::Symbol,
+                '`' as i32,
+                1,
+                false,
+            )
+        {
+            return true;
+        }
+        if valid_symbols[TOK_CONTENT_CMD3_RAW]
+            && scan_content(
+                lexer,
+                TOK_CONTENT_CMD3_RAW as gositter::Symbol,
+                '`' as i32,
+                3,
+                false,
+            )
+        {
+            return true;
+        }
+
+        false
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]

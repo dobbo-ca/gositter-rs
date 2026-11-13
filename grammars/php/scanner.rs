@@ -115,8 +115,10 @@ impl Scanner {
             size += 4;
             if n > 0 {
                 h.word = buf[size..size + 4 * n]
-                    .chunks_exact(4)
-                    .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|c| i32::from_le_bytes(*c))
                     .collect();
                 size += 4 * n;
             }

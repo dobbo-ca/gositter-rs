@@ -565,7 +565,7 @@ mod tests {
 
     #[test]
     fn field_names_and_ids() {
-        let lang = test_language();
+        let lang = fields_language();
         assert_eq!(lang.field_name_for_id(0), None);
         assert_eq!(lang.field_name_for_id(1), Some("key"));
         assert_eq!(lang.field_name_for_id(2), Some("value"));
@@ -607,6 +607,7 @@ mod tests {
         // C switches on strncmp with "case -1": "a" against field 1 "b" is exactly -1, so
         // the scan ends before it reaches field 2 "a".
         let lang = Box::leak(Box::new(Language::new(LanguageTables {
+            field_count: 2,
             field_names: &["", "b", "a"],
             ..TABLES
         })));

@@ -12,7 +12,6 @@ fn new_test_pool() -> SubtreePool {
 
 /// TestChildClass
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn child_class() {
     assert_eq!(
         std::mem::size_of::<SubtreeHeap>(),
@@ -75,7 +74,6 @@ fn node(sp: &mut SubtreePool, lang: &Language, leaf: Subtree, n: u32) -> Subtree
 /// time, the shape of ts_parser__recover_to_state, keeps the slab linear in its
 /// length.
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn children_block_reuse() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let leaf = Subtree((u64::from(TS_ANON) << INL_SYMBOL_SHIFT) | INL_IS_INLINE);
@@ -154,7 +152,6 @@ fn check(sp: &SubtreePool, b: Block) {
 /// (the slab stays within a constant of the live peak) and freeing everything
 /// empties the slab.
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn children_allocator() {
     let mut sp = new_test_pool();
     // Go seeds math/rand with 1; the case set differs, the invariants do not.

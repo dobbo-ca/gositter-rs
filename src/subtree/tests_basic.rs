@@ -21,7 +21,6 @@ fn len(bytes: u32, row: u32, column: u32) -> Length {
 
 /// TestSubtreeInlineLayout
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_inline_layout() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let padding = len(7, 3, 5);
@@ -60,7 +59,6 @@ fn subtree_inline_layout() {
 
 /// TestSubtreeCanInline
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_can_inline() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let ok = len(1, 0, 1);
@@ -144,7 +142,6 @@ fn subtree_can_inline() {
 
 /// TestSubtreeMissingAndErrorCost
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_missing_and_error_cost() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let m = sp.new_missing_leaf(TS_ANON, Length::default(), 3, lang);
@@ -182,7 +179,6 @@ fn subtree_missing_and_error_cost() {
 
 /// TestSubtreeNewNodeSummary
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_new_node_summary() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let a = sp.new_leaf(
@@ -257,7 +253,6 @@ fn subtree_new_node_summary() {
 
 /// TestSubtreeMakeMutAndRelease
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_make_mut_and_release() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let big = len(300, 0, 300);
@@ -357,7 +352,6 @@ fn compare_node(sp: &mut SubtreePool, lang: &Language, children: &[Subtree]) -> 
 
 /// TestSubtreeCompare
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_compare() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let (la, li) = (
@@ -385,7 +379,6 @@ fn subtree_compare() {
 
 /// TestSubtreeArraySplice
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_array_splice() {
     let mut sp = new_test_pool();
     let mut arr = SubtreeArray::default();
@@ -416,7 +409,6 @@ fn subtree_array_splice() {
 /// The union quirk: C reads repeat_depth from an external token's inline
 /// scanner state. (*Parser).lex stores those two bytes in repeatDepth.
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn subtree_repeat_depth_of_leaves() {
     let (mut sp, lang) = (new_test_pool(), test_language());
     let inline = sp.new_leaf(

@@ -97,7 +97,7 @@ fn ranges_example() {
         ranges(&sample(), &sets),
         [(-1, -1), (1, 39), (42, 0x10FFFF)]
     );
-    assert_eq!(ranges(&Cond::Eof, &sets), []);
+    assert!(ranges(&Cond::Eof, &sets).is_empty());
 }
 
 #[test]

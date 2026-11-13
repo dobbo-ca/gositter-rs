@@ -1,7 +1,7 @@
 //go:build lexoracle
 
-// Command lex runs gositter's generated Go lex functions (ts_lex, ts_lex_keywords) of bash, cpp,
-// json and verilog on the mock lexer (mock.go) and writes the digest of every case, as the oracle
+// Command lex runs gositter's generated Go lex functions (ts_lex, ts_lex_keywords) of all 21
+// grammars on the mock lexer (mock.go) and writes the digest of every case, as the oracle
 // for the Rust lexers (grammars/tests/oracle_lex.rs). It is built against a copy of gositter that
 // has mock.go as its Lexer (ci/Dockerfile, stage grammar-oracle), so it carries a build tag.
 //
@@ -44,9 +44,26 @@ import (
 
 	"github.com/dobbo-ca/gositter"
 	"github.com/dobbo-ca/gositter/grammars/bash"
+	"github.com/dobbo-ca/gositter/grammars/c"
 	"github.com/dobbo-ca/gositter/grammars/cpp"
+	"github.com/dobbo-ca/gositter/grammars/csharp"
+	"github.com/dobbo-ca/gositter/grammars/golang"
+	"github.com/dobbo-ca/gositter/grammars/hcl"
+	"github.com/dobbo-ca/gositter/grammars/java"
+	"github.com/dobbo-ca/gositter/grammars/javascript"
 	"github.com/dobbo-ca/gositter/grammars/json"
+	"github.com/dobbo-ca/gositter/grammars/julia"
+	"github.com/dobbo-ca/gositter/grammars/kotlin"
+	"github.com/dobbo-ca/gositter/grammars/lua"
+	"github.com/dobbo-ca/gositter/grammars/php"
+	"github.com/dobbo-ca/gositter/grammars/python"
+	"github.com/dobbo-ca/gositter/grammars/ruby"
+	"github.com/dobbo-ca/gositter/grammars/rust"
+	"github.com/dobbo-ca/gositter/grammars/scala"
+	"github.com/dobbo-ca/gositter/grammars/tsx"
+	"github.com/dobbo-ca/gositter/grammars/typescript"
 	"github.com/dobbo-ca/gositter/grammars/verilog"
+	"github.com/dobbo-ca/gositter/grammars/zig"
 )
 
 var grammars = []struct {
@@ -54,9 +71,26 @@ var grammars = []struct {
 	lang func() *gositter.Language
 }{
 	{"bash", bash.Language},
+	{"c", c.Language},
 	{"cpp", cpp.Language},
+	{"csharp", csharp.Language},
+	{"golang", golang.Language},
+	{"hcl", hcl.Language},
+	{"java", java.Language},
+	{"javascript", javascript.Language},
 	{"json", json.Language},
+	{"julia", julia.Language},
+	{"kotlin", kotlin.Language},
+	{"lua", lua.Language},
+	{"php", php.Language},
+	{"python", python.Language},
+	{"ruby", ruby.Language},
+	{"rust", rust.Language},
+	{"scala", scala.Language},
+	{"tsx", tsx.Language},
+	{"typescript", typescript.Language},
 	{"verilog", verilog.Language},
+	{"zig", zig.Language},
 }
 
 const textLimit = 60000

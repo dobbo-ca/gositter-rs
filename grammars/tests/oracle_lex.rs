@@ -1,7 +1,7 @@
 //! The generated lex functions against gositter's Go ones: every case of the lex oracle
 //! (`gengrammar/oracle/lex`, written to `$GRAMMAR_ORACLE/<g>.lex` and `<g>.lextext`) must give the
 //! same trace digest on the mock lexer. Without GRAMMAR_ORACLE it does nothing. The grammars/<g>/lex.rs
-//! files are included as they are, whichever form gengrammar wrote.
+//! files of all 21 grammars are included as they are (hcl and json have no keyword lexer).
 
 #[path = "common/lexmock.rs"]
 mod lexmock;
@@ -9,14 +9,65 @@ mod lexmock;
 #[path = "../bash/lex.rs"]
 mod bash;
 #[rustfmt::skip]
+#[path = "../c/lex.rs"]
+mod c;
+#[rustfmt::skip]
 #[path = "../cpp/lex.rs"]
 mod cpp;
+#[rustfmt::skip]
+#[path = "../csharp/lex.rs"]
+mod csharp;
+#[rustfmt::skip]
+#[path = "../golang/lex.rs"]
+mod golang;
+#[rustfmt::skip]
+#[path = "../hcl/lex.rs"]
+mod hcl;
+#[rustfmt::skip]
+#[path = "../java/lex.rs"]
+mod java;
+#[rustfmt::skip]
+#[path = "../javascript/lex.rs"]
+mod javascript;
 #[rustfmt::skip]
 #[path = "../json/lex.rs"]
 mod json;
 #[rustfmt::skip]
+#[path = "../julia/lex.rs"]
+mod julia;
+#[rustfmt::skip]
+#[path = "../kotlin/lex.rs"]
+mod kotlin;
+#[rustfmt::skip]
+#[path = "../lua/lex.rs"]
+mod lua;
+#[rustfmt::skip]
+#[path = "../php/lex.rs"]
+mod php;
+#[rustfmt::skip]
+#[path = "../python/lex.rs"]
+mod python;
+#[rustfmt::skip]
+#[path = "../ruby/lex.rs"]
+mod ruby;
+#[rustfmt::skip]
+#[path = "../rust/lex.rs"]
+mod rust;
+#[rustfmt::skip]
+#[path = "../scala/lex.rs"]
+mod scala;
+#[rustfmt::skip]
+#[path = "../tsx/lex.rs"]
+mod tsx;
+#[rustfmt::skip]
+#[path = "../typescript/lex.rs"]
+mod typescript;
+#[rustfmt::skip]
 #[path = "../verilog/lex.rs"]
 mod verilog;
+#[rustfmt::skip]
+#[path = "../zig/lex.rs"]
+mod zig;
 
 use lexmock::MockLexer;
 use std::collections::HashMap;
@@ -153,7 +204,6 @@ fn check(g: &str, fns: &[(&str, LexFn)]) {
     }
     assert!(ntext >= fns.len(), "{g}: only {ntext} text lines");
 }
-
 #[test]
 fn bash() {
     check(
@@ -161,6 +211,17 @@ fn bash() {
         &[
             ("lex", bash::lex::<MockLexer> as LexFn),
             ("kw", bash::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn c() {
+    check(
+        "c",
+        &[
+            ("lex", c::lex::<MockLexer> as LexFn),
+            ("kw", c::lex_keywords::<MockLexer> as LexFn),
         ],
     );
 }
@@ -177,8 +238,167 @@ fn cpp() {
 }
 
 #[test]
+fn csharp() {
+    check(
+        "csharp",
+        &[
+            ("lex", csharp::lex::<MockLexer> as LexFn),
+            ("kw", csharp::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn golang() {
+    check(
+        "golang",
+        &[
+            ("lex", golang::lex::<MockLexer> as LexFn),
+            ("kw", golang::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn hcl() {
+    check("hcl", &[("lex", hcl::lex::<MockLexer> as LexFn)]);
+}
+
+#[test]
+fn java() {
+    check(
+        "java",
+        &[
+            ("lex", java::lex::<MockLexer> as LexFn),
+            ("kw", java::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn javascript() {
+    check(
+        "javascript",
+        &[
+            ("lex", javascript::lex::<MockLexer> as LexFn),
+            ("kw", javascript::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
 fn json() {
     check("json", &[("lex", json::lex::<MockLexer> as LexFn)]);
+}
+
+#[test]
+fn julia() {
+    check(
+        "julia",
+        &[
+            ("lex", julia::lex::<MockLexer> as LexFn),
+            ("kw", julia::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn kotlin() {
+    check(
+        "kotlin",
+        &[
+            ("lex", kotlin::lex::<MockLexer> as LexFn),
+            ("kw", kotlin::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn lua() {
+    check(
+        "lua",
+        &[
+            ("lex", lua::lex::<MockLexer> as LexFn),
+            ("kw", lua::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn php() {
+    check(
+        "php",
+        &[
+            ("lex", php::lex::<MockLexer> as LexFn),
+            ("kw", php::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn python() {
+    check(
+        "python",
+        &[
+            ("lex", python::lex::<MockLexer> as LexFn),
+            ("kw", python::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn ruby() {
+    check(
+        "ruby",
+        &[
+            ("lex", ruby::lex::<MockLexer> as LexFn),
+            ("kw", ruby::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn rust() {
+    check(
+        "rust",
+        &[
+            ("lex", rust::lex::<MockLexer> as LexFn),
+            ("kw", rust::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn scala() {
+    check(
+        "scala",
+        &[
+            ("lex", scala::lex::<MockLexer> as LexFn),
+            ("kw", scala::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn tsx() {
+    check(
+        "tsx",
+        &[
+            ("lex", tsx::lex::<MockLexer> as LexFn),
+            ("kw", tsx::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn typescript() {
+    check(
+        "typescript",
+        &[
+            ("lex", typescript::lex::<MockLexer> as LexFn),
+            ("kw", typescript::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
 }
 
 #[test]
@@ -188,6 +408,17 @@ fn verilog() {
         &[
             ("lex", verilog::lex::<MockLexer> as LexFn),
             ("kw", verilog::lex_keywords::<MockLexer> as LexFn),
+        ],
+    );
+}
+
+#[test]
+fn zig() {
+    check(
+        "zig",
+        &[
+            ("lex", zig::lex::<MockLexer> as LexFn),
+            ("kw", zig::lex_keywords::<MockLexer> as LexFn),
         ],
     );
 }

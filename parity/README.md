@@ -22,7 +22,7 @@ Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 | gositter `Example` / `Benchmark` / `Fuzz` | 3 | 0 | 0 | 0 |
 | C goldens (`testdata/regress`) | 1,423 | 0 | 0 | 0 |
 | gositter `cmd/gengrammar` and `grammars/internal/cchar` tests | 3 | 3 | 0 | 3 |
-| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` | 63 | 63 | 0 | 42 |
+| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (52 compiled, 11 compiled out) | 63 | 63 | 0 | 42 |
 
 "Ported" counts a test once it is in the tree (passing or `#[ignore = "<bead>"]`); "Passing" counts it once
 it runs green in the `test` job.
@@ -110,34 +110,38 @@ it runs green in the `test` job.
 ## Grammar tests
 
 Plan: `docs/superpowers/plans/2026-11-13-grammars.md` (grammar stream). Scanner tests are unit tests in
-`grammars/<g>/scanner.rs`. Parser-level and reset tests need the runtime parser and `Language`, so they
-are in the tree but compiled out with `#[cfg(any())]` (bead `gositter-rs-vjz.12` turns them on);
-"Ported" counts them, "Passing" does not.
+`grammars/<g>/scanner.rs`. A test that is not passing yet is either compiled and
+`#[ignore = "<bead>"]` (it compiles against the runtime's stubbed API; the grammar's `language()` is a
+test-only stand-in until Task 10 generates it), or compiled out with `#[cfg(any())]` because it names
+something that does not exist yet (a comment gives the bead). "Ported" is the sum of the three counts.
 
-| Source file | Tests | Ported | Passing | Not yet passing |
+| Source file | Tests | Passing | Compiled + ignored | Compiled out |
 |---|---|---|---|---|
-| `cmd/gengrammar/gengrammar_test.go` | 2 | 2 | 2 | |
-| `grammars/internal/cchar/cchar_test.go` | 1 | 1 | 1 | |
-| `bash/scanner_test.go` | 4 | 4 | 3 | `TestHeredocEndChar` (parser) |
-| `bash/reset_test.go` | 3 | 3 | 0 | parser; the hand-made half of `TestResetIsNew` runs as `reset_hand_made` |
-| `cpp/scanner_test.go` | 4 | 4 | 3 | `TestRawStrings` (parser) |
-| `cpp/reset_test.go` | 2 | 2 | 0 | parser |
-| `csharp/scanner_test.go` | 5 | 5 | 4 | `TestScanState` (parser) |
-| `hcl/scanner_test.go` | 3 | 3 | 3 | |
-| `hcl/reset_test.go` | 3 | 3 | 0 | parser |
-| `javascript/scanner_test.go` | 4 | 4 | 2 | `TestTokenOrder` (tables), `TestScanSmoke` (parser) |
-| `julia/scanner_test.go` | 3 | 3 | 1 | `TestLanguageWiresScanner` (tables), `TestParseScannerTokens` (parser) |
-| `kotlin/scanner_test.go` | 3 | 3 | 2 | `TestScan` (parser) |
-| `lua/scanner_test.go` | 3 | 3 | 2 | `TestLongBrackets` (parser) |
-| `php/scanner_test.go` | 4 | 4 | 4 | |
-| `python/scanner_test.go` | 3 | 3 | 3 | |
-| `python/reset_test.go` | 2 | 2 | 0 | parser |
-| `ruby/scanner_test.go` | 5 | 5 | 5 | |
-| `rust/scanner_test.go` | 2 | 2 | 2 | |
-| `scala/scanner_test.go` | 4 | 4 | 4 | |
-| `tsx/scanner_test.go` | 3 | 3 | 2 | `TestParse` (parser) |
-| `typescript/scanner_test.go` | 3 | 3 | 2 | `TestParse` (parser) |
-| **Total** | **66** | **66** | **45** | |
+| `cmd/gengrammar/gengrammar_test.go` | 2 | 2 | 0 | 0 |
+| `grammars/internal/cchar/cchar_test.go` | 1 | 1 | 0 | 0 |
+| `bash/scanner_test.go` | 4 | 3 | 1 `TestHeredocEndChar` | 0 |
+| `bash/reset_test.go` | 3 | 0 | 0 | 3 (`.12`: needs `impl ExternalScanner`) |
+| `cpp/scanner_test.go` | 4 | 3 | 1 `TestRawStrings` | 0 |
+| `cpp/reset_test.go` | 2 | 0 | 0 | 2 (`.12`) |
+| `csharp/scanner_test.go` | 5 | 4 | 1 `TestScanState` | 0 |
+| `hcl/scanner_test.go` | 3 | 3 | 0 | 0 |
+| `hcl/reset_test.go` | 3 | 0 | 0 | 3 (`.12`) |
+| `javascript/scanner_test.go` | 4 | 2 | 1 `TestScanSmoke` | 1 `TestTokenOrder` (`.10`: needs the generated consts) |
+| `julia/scanner_test.go` | 3 | 1 | 2 `TestLanguageWiresScanner`, `TestParseScannerTokens` | 0 |
+| `kotlin/scanner_test.go` | 3 | 2 | 1 `TestScan` | 0 |
+| `lua/scanner_test.go` | 3 | 2 | 1 `TestLongBrackets` | 0 |
+| `php/scanner_test.go` | 4 | 4 | 0 | 0 |
+| `python/scanner_test.go` | 3 | 3 | 0 | 0 |
+| `python/reset_test.go` | 2 | 0 | 0 | 2 (`.12`) |
+| `ruby/scanner_test.go` | 5 | 5 | 0 | 0 |
+| `rust/scanner_test.go` | 2 | 2 | 0 | 0 |
+| `scala/scanner_test.go` | 4 | 4 | 0 | 0 |
+| `tsx/scanner_test.go` | 3 | 2 | 1 `TestParse` | 0 |
+| `typescript/scanner_test.go` | 3 | 2 | 1 `TestParse` | 0 |
+| **Total** | **66** | **45** | **10** | **11** |
 
-Tests with no Go source are not counted: gengrammar's SHA-256 vectors, lock file, tokenizer and parser
-rejects (Tasks 1-3), and the oracle diffs of Tasks 6 and 8, which run in addition to the ported tests.
+Beads: `.10` is `gositter-rs-vjz.10` (Task 10, generated `language()`), `.12` is `gositter-rs-vjz.12`
+(Task 12, `scan` and the `ExternalScanner` impl). The hand-made half of bash `TestResetIsNew` already runs
+as `reset_hand_made`. Tests with no Go source are not counted: gengrammar's SHA-256 vectors, lock file,
+tokenizer and parser rejects, and the oracle diffs of Tasks 6 and 8, which run in addition to the ported
+tests.

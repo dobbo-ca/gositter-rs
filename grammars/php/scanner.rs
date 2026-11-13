@@ -1,5 +1,5 @@
 //! Port of gositter `grammars/php/scanner.go` (tree-sitter-php v0.24.2 `common/scanner.h`):
-//! state, serialize and deserialize. `scan` waits for the runtime Lexer (Task 12).
+//! state, serialize, deserialize and scan.
 
 use crate::SERIALIZATION_BUFFER_SIZE;
 
@@ -125,6 +125,426 @@ impl Scanner {
         }
         // C: assert(size == length). Holds for anything serialize wrote.
     }
+}
+
+/// `scan_whitespace`
+fn scan_whitespace(lexer: &mut gositter::Lexer<'_>) -> bool {
+    loop {
+        while iswspace(lexer.lookahead) {
+            lexer.advance(false);
+        }
+
+        if lexer.lookahead == '/' as i32 {
+            lexer.advance(false);
+
+            if lexer.lookahead == '/' as i32 {
+                lexer.advance(false);
+                while lexer.lookahead != 0 && lexer.lookahead != '\n' as i32 {
+                    lexer.advance(false);
+                }
+            } else {
+                return false;
+            }
+        } else {
+            return true;
+        }
+    }
+}
+
+/// `is_valid_name_char`
+fn is_valid_name_char(lexer: &gositter::Lexer<'_>) -> bool {
+    iswalnum(lexer.lookahead) || lexer.lookahead == '_' as i32 || lexer.lookahead >= 0x80
+}
+
+/// `is_escapable_sequence`
+fn is_escapable_sequence(lexer: &mut gositter::Lexer<'_>) -> bool {
+    let letter = lexer.lookahead;
+
+    if matches!(
+        u8::try_from(letter),
+        Ok(b'n' | b'r' | b't' | b'v' | b'e' | b'f' | b'\\' | b'$' | b'"')
+    ) {
+        return true;
+    }
+
+    // Hex
+    if letter == 'x' as i32 {
+        lexer.advance(false);
+        return iswxdigit(lexer.lookahead);
+    }
+
+    // Unicode. grammar.js sorts out "\u{$a}".
+    if letter == 'u' as i32 {
+        return true;
+    }
+
+    // Octal
+    iswdigit(lexer.lookahead) && (48..=55).contains(&lexer.lookahead)
+}
+
+/// `scan_heredoc_word`
+fn scan_heredoc_word(lexer: &mut gositter::Lexer<'_>) -> Vec<i32> {
+    let mut result = Vec::new();
+
+    while is_valid_name_char(lexer) {
+        result.push(lexer.lookahead);
+        lexer.advance(false);
+    }
+
+    result
+}
+
+/// The end tag test shared by scan_nowdoc_string and scan_encapsed_part_string.
+fn is_tag_terminator(c: i32) -> bool {
+    iswspace(c) || c == ';' as i32 || c == ',' as i32 || c == ')' as i32
+}
+
+impl Scanner {
+    /// `scan_nowdoc_string`
+    fn scan_nowdoc_string(&self, lexer: &mut gositter::Lexer<'_>) -> bool {
+        let mut has_consumed_content = false;
+        if self.heredocs.is_empty() {
+            return false;
+        }
+
+        // Any whitespace may come before the closing tag.
+        while iswspace(lexer.lookahead) {
+            lexer.advance(false);
+            has_consumed_content = true;
+        }
+
+        let mut end_tag_matched = false;
+        let heredoc_tag = &self.heredocs[self.heredocs.len() - 1].word;
+
+        for (i, &c) in heredoc_tag.iter().enumerate() {
+            if lexer.lookahead != c {
+                break;
+            }
+            lexer.advance(false);
+            has_consumed_content = true;
+
+            end_tag_matched = i == heredoc_tag.len() - 1 && is_tag_terminator(lexer.lookahead);
+        }
+
+        if end_tag_matched {
+            while iswspace(lexer.lookahead)
+                && lexer.lookahead != '\r' as i32
+                && lexer.lookahead != '\n' as i32
+            {
+                lexer.advance(false);
+                has_consumed_content = true;
+            }
+
+            // Leave the end tag to HEREDOC_END.
+            if lexer.lookahead == ';' as i32
+                || lexer.lookahead == ',' as i32
+                || lexer.lookahead == ')' as i32
+                || lexer.lookahead == '\n' as i32
+                || lexer.lookahead == '\r' as i32
+            {
+                return false;
+            }
+        }
+
+        let mut has_content = has_consumed_content;
+        loop {
+            lexer.mark_end();
+
+            match lexer.lookahead {
+                0x0A | 0x0D => return has_content,
+                _ => {
+                    if lexer.eof() {
+                        return false;
+                    }
+                    lexer.advance(false);
+                }
+            }
+
+            has_content = true;
+        }
+    }
+
+    /// `scan_encapsed_part_string`
+    fn scan_encapsed_part_string(
+        &self,
+        lexer: &mut gositter::Lexer<'_>,
+        mut is_after_variable: bool,
+        is_heredoc: bool,
+        is_execution_string: bool,
+    ) -> bool {
+        const DQUOTE: i32 = '"' as i32;
+        const BACKTICK: i32 = '`' as i32;
+        const NL: i32 = '\n' as i32;
+        const CR: i32 = '\r' as i32;
+        const BACKSLASH: i32 = '\\' as i32;
+        const DOLLAR: i32 = '$' as i32;
+        const DASH: i32 = '-' as i32;
+        const LBRACKET: i32 = '[' as i32;
+        const LBRACE: i32 = '{' as i32;
+
+        let mut has_consumed_content = false;
+
+        if is_heredoc && !self.heredocs.is_empty() {
+            // Whitespace before the closing tag, but not \r or \n.
+            while iswspace(lexer.lookahead) && lexer.lookahead != CR && lexer.lookahead != NL {
+                lexer.advance(false);
+                has_consumed_content = true;
+            }
+
+            let heredoc_tag = &self.heredocs[self.heredocs.len() - 1].word;
+
+            let mut end_tag_matched = false;
+
+            for (i, &c) in heredoc_tag.iter().enumerate() {
+                if lexer.lookahead != c {
+                    break;
+                }
+                has_consumed_content = true;
+                lexer.advance(false);
+
+                end_tag_matched = i == heredoc_tag.len() - 1 && is_tag_terminator(lexer.lookahead);
+            }
+
+            if end_tag_matched {
+                while iswspace(lexer.lookahead) && lexer.lookahead != CR && lexer.lookahead != NL {
+                    lexer.advance(false);
+                    has_consumed_content = true;
+                }
+
+                // Leave the end tag to HEREDOC_END.
+                if lexer.lookahead == ';' as i32
+                    || lexer.lookahead == ',' as i32
+                    || lexer.lookahead == ')' as i32
+                    || lexer.lookahead == NL
+                    || lexer.lookahead == CR
+                {
+                    return false;
+                }
+            }
+        }
+
+        let mut has_content = has_consumed_content;
+        loop {
+            lexer.mark_end();
+
+            // A Go `break` inside the switch leaves only the switch.
+            'sw: {
+                match lexer.lookahead {
+                    DQUOTE => {
+                        if !is_heredoc && !is_execution_string {
+                            return has_content;
+                        }
+                        lexer.advance(false);
+                    }
+                    BACKTICK => {
+                        if is_execution_string {
+                            return has_content;
+                        }
+                        lexer.advance(false);
+                    }
+                    NL | CR => {
+                        if is_heredoc {
+                            return has_content;
+                        }
+                        lexer.advance(false);
+                    }
+                    BACKSLASH => {
+                        lexer.advance(false);
+
+                        // \{ is not an escape; both are plain characters.
+                        if lexer.lookahead == LBRACE {
+                            lexer.advance(false);
+                            break 'sw;
+                        }
+
+                        if is_execution_string && lexer.lookahead == BACKTICK {
+                            return has_content;
+                        }
+
+                        if is_heredoc && lexer.lookahead == BACKSLASH {
+                            lexer.advance(false);
+                            break 'sw;
+                        }
+
+                        if is_escapable_sequence(lexer) {
+                            return has_content;
+                        }
+                    }
+                    DOLLAR => {
+                        lexer.advance(false);
+
+                        if (is_valid_name_char(lexer) && !iswdigit(lexer.lookahead))
+                            || lexer.lookahead == LBRACE
+                        {
+                            return has_content;
+                        }
+                    }
+                    DASH | LBRACKET => {
+                        if lexer.lookahead == DASH && is_after_variable {
+                            lexer.advance(false);
+                            if lexer.lookahead == '>' as i32 {
+                                lexer.advance(false);
+                                if is_valid_name_char(lexer) {
+                                    return has_content;
+                                }
+                            }
+                            break 'sw;
+                        }
+                        // C falls through from '-' into '[' when not after a variable.
+                        if is_after_variable {
+                            return has_content;
+                        }
+                        lexer.advance(false);
+                    }
+                    LBRACE => {
+                        lexer.advance(false);
+                        if lexer.lookahead == DOLLAR {
+                            return has_content;
+                        }
+                    }
+                    _ => {
+                        if lexer.eof() {
+                            return false;
+                        }
+                        lexer.advance(false);
+                    }
+                }
+            }
+
+            is_after_variable = false;
+            has_content = true;
+        }
+    }
+}
+
+impl gositter::ExternalScanner for Scanner {
+    /// `scan`
+    fn scan(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        let v = |t: u16| valid_symbols[t as usize];
+        let is_error_recovery = v(tok::SENTINEL_ERROR);
+
+        if is_error_recovery {
+            return false;
+        }
+
+        self.has_leading_whitespace = false;
+
+        lexer.mark_end();
+
+        if v(tok::ENCAPSED_STRING_CHARS_AFTER_VARIABLE) {
+            lexer.result_symbol = tok::ENCAPSED_STRING_CHARS_AFTER_VARIABLE;
+            return self.scan_encapsed_part_string(lexer, true, false, false);
+        }
+
+        if v(tok::ENCAPSED_STRING_CHARS) {
+            lexer.result_symbol = tok::ENCAPSED_STRING_CHARS;
+            return self.scan_encapsed_part_string(lexer, false, false, false);
+        }
+
+        if v(tok::EXECUTION_STRING_CHARS_AFTER_VARIABLE) {
+            lexer.result_symbol = tok::EXECUTION_STRING_CHARS_AFTER_VARIABLE;
+            return self.scan_encapsed_part_string(lexer, true, false, true);
+        }
+
+        if v(tok::EXECUTION_STRING_CHARS) {
+            lexer.result_symbol = tok::EXECUTION_STRING_CHARS;
+            return self.scan_encapsed_part_string(lexer, false, false, true);
+        }
+
+        if v(tok::ENCAPSED_STRING_CHARS_AFTER_VARIABLE_HEREDOC) {
+            lexer.result_symbol = tok::ENCAPSED_STRING_CHARS_AFTER_VARIABLE_HEREDOC;
+            return self.scan_encapsed_part_string(lexer, true, true, false);
+        }
+
+        if v(tok::ENCAPSED_STRING_CHARS_HEREDOC) {
+            lexer.result_symbol = tok::ENCAPSED_STRING_CHARS_HEREDOC;
+            return self.scan_encapsed_part_string(lexer, false, true, false);
+        }
+
+        if v(tok::NOWDOC_STRING) {
+            lexer.result_symbol = tok::NOWDOC_STRING;
+            return self.scan_nowdoc_string(lexer);
+        }
+
+        if v(tok::HEREDOC_END) {
+            lexer.result_symbol = tok::HEREDOC_END;
+            if self.heredocs.is_empty() {
+                return false;
+            }
+
+            let want = &self.heredocs[self.heredocs.len() - 1].word;
+
+            while iswspace(lexer.lookahead) {
+                lexer.advance(true);
+            }
+
+            // string_eq. An emptied heredoc (see deserialize) matches an
+            // empty word, as in C.
+            if scan_heredoc_word(lexer) != *want {
+                return false;
+            }
+
+            lexer.mark_end();
+            self.heredocs.pop();
+            return true;
+        }
+
+        if !scan_whitespace(lexer) {
+            return false;
+        }
+
+        if v(tok::EOF_TOKEN) && lexer.eof() {
+            lexer.result_symbol = tok::EOF_TOKEN;
+            return true;
+        }
+
+        if v(tok::HEREDOC_START) {
+            lexer.result_symbol = tok::HEREDOC_START;
+
+            while iswspace(lexer.lookahead) {
+                lexer.advance(true);
+            }
+
+            let word = scan_heredoc_word(lexer);
+            if word.is_empty() {
+                return false;
+            }
+            lexer.mark_end();
+
+            self.heredocs.push(Heredoc {
+                word,
+                ..Heredoc::default()
+            });
+            return true;
+        }
+
+        if v(tok::AUTOMATIC_SEMICOLON) {
+            lexer.result_symbol = tok::AUTOMATIC_SEMICOLON;
+
+            if lexer.lookahead != '?' as i32 {
+                return false;
+            }
+
+            lexer.advance(false);
+
+            return lexer.lookahead == '>' as i32;
+        }
+
+        false
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]

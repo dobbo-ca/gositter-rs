@@ -1,5 +1,5 @@
 //! Port of gositter `grammars/csharp/scanner.go` (tree-sitter-c-sharp v0.23.5 `src/scanner.c`):
-//! state, serialize and deserialize. `scan` waits for the runtime Lexer (Task 12).
+//! state, serialize, deserialize and scan.
 
 use crate::SERIALIZATION_BUFFER_SIZE;
 
@@ -104,6 +104,363 @@ impl Scanner {
         }
         // C: assert(size == length). Holds for every buffer serialize wrote.
     }
+}
+
+impl Interpolation {
+    /// `is_regular`
+    fn is_regular(&self) -> bool {
+        self.string_type & STRING_REGULAR != 0
+    }
+
+    /// `is_verbatim`
+    fn is_verbatim(&self) -> bool {
+        self.string_type & STRING_VERBATIM != 0
+    }
+
+    /// `is_raw`
+    fn is_raw(&self) -> bool {
+        self.string_type & STRING_RAW != 0
+    }
+}
+
+impl gositter::ExternalScanner for Scanner {
+    /// `Scan`
+    fn scan(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        let v = |t: u16| valid_symbols[t as usize];
+        // uint8 counters wrap at 256 as in C.
+        let mut brace_advanced = 0u8;
+        let mut quote_count = 0u8;
+        let mut did_advance = false;
+
+        // error recovery, gives better trees this way
+        if v(tok::OPT_SEMI) && v(tok::INTERPOLATION_REGULAR_START) {
+            return false;
+        }
+
+        if v(tok::OPT_SEMI) {
+            lexer.result_symbol = tok::OPT_SEMI;
+            if lexer.lookahead == ';' as i32 {
+                lexer.advance(false);
+            }
+            return true;
+        }
+
+        if v(tok::RAW_STRING_START) {
+            while iswspace(lexer.lookahead) {
+                lexer.advance(true);
+            }
+
+            if lexer.lookahead == '"' as i32 {
+                while lexer.lookahead == '"' as i32 {
+                    lexer.advance(false);
+                    quote_count = quote_count.wrapping_add(1);
+                }
+
+                if quote_count >= 3 {
+                    lexer.result_symbol = tok::RAW_STRING_START;
+                    self.quote_count = quote_count;
+                    return true;
+                }
+            }
+        }
+
+        if v(tok::RAW_STRING_END) && lexer.lookahead == '"' as i32 {
+            while lexer.lookahead == '"' as i32 {
+                lexer.advance(false);
+                quote_count = quote_count.wrapping_add(1);
+            }
+
+            if quote_count == self.quote_count {
+                lexer.result_symbol = tok::RAW_STRING_END;
+                self.quote_count = 0;
+                return true;
+            }
+
+            did_advance = quote_count > 0;
+        }
+
+        if v(tok::RAW_STRING_CONTENT) {
+            while lexer.lookahead != 0 {
+                if lexer.lookahead == '"' as i32 {
+                    lexer.mark_end();
+                    quote_count = 0;
+
+                    while lexer.lookahead == '"' as i32 {
+                        lexer.advance(false);
+                        quote_count = quote_count.wrapping_add(1);
+                    }
+
+                    if quote_count == self.quote_count {
+                        lexer.result_symbol = tok::RAW_STRING_CONTENT;
+                        return true;
+                    }
+                }
+                lexer.advance(false);
+                // C sets did_advance = true here; nothing reads it, this branch always returns.
+            }
+            lexer.mark_end();
+            lexer.result_symbol = tok::RAW_STRING_CONTENT;
+            return true;
+        }
+
+        if v(tok::INTERPOLATION_REGULAR_START)
+            || v(tok::INTERPOLATION_VERBATIM_START)
+            || v(tok::INTERPOLATION_RAW_START)
+        {
+            while iswspace(lexer.lookahead) {
+                lexer.advance(true);
+            }
+
+            let mut dollar_advanced = 0u8;
+
+            let mut is_verbatim = false;
+
+            if lexer.lookahead == '@' as i32 {
+                is_verbatim = true;
+                lexer.advance(false);
+            }
+
+            // quote_count can be non-zero here: the raw string branches above
+            // may have consumed quotes without returning.
+            while lexer.lookahead == '$' as i32 && quote_count == 0 {
+                lexer.advance(false);
+                dollar_advanced = dollar_advanced.wrapping_add(1);
+            }
+
+            if dollar_advanced > 0
+                && (lexer.lookahead == '"' as i32 || lexer.lookahead == '@' as i32)
+            {
+                lexer.result_symbol = tok::INTERPOLATION_REGULAR_START;
+                let mut ip = Interpolation {
+                    dollar_count: dollar_advanced,
+                    ..Interpolation::default()
+                };
+
+                if is_verbatim || lexer.lookahead == '@' as i32 {
+                    if lexer.lookahead == '@' as i32 {
+                        lexer.advance(false);
+                        is_verbatim = true;
+                    }
+                    lexer.result_symbol = tok::INTERPOLATION_VERBATIM_START;
+                    ip.string_type = STRING_VERBATIM;
+                }
+
+                lexer.mark_end();
+                lexer.advance(false);
+
+                if lexer.lookahead == '"' as i32 && !is_verbatim {
+                    lexer.advance(false);
+                    if lexer.lookahead == '"' as i32 {
+                        lexer.result_symbol = tok::INTERPOLATION_RAW_START;
+                        ip.string_type |= STRING_RAW;
+                        self.interpolation_stack.push(ip);
+                    }
+                    // If we find 1 or 3 quotes, we push an interpolation.
+                    // If there's only two quotes, that's just an empty string
+                } else {
+                    ip.string_type |= STRING_REGULAR;
+                    self.interpolation_stack.push(ip);
+                }
+
+                return true;
+            }
+        }
+
+        if v(tok::INTERPOLATION_START_QUOTE) && !self.interpolation_stack.is_empty() {
+            let cur = self.interpolation_stack.last_mut().unwrap();
+
+            if cur.is_verbatim() || cur.is_regular() {
+                if lexer.lookahead == '"' as i32 {
+                    lexer.advance(false);
+                    cur.quote_count = cur.quote_count.wrapping_add(1);
+                }
+            } else {
+                while lexer.lookahead == '"' as i32 {
+                    lexer.advance(false);
+                    cur.quote_count = cur.quote_count.wrapping_add(1);
+                }
+            }
+
+            lexer.result_symbol = tok::INTERPOLATION_START_QUOTE;
+            return cur.quote_count > 0;
+        }
+
+        if v(tok::INTERPOLATION_END_QUOTE) && !self.interpolation_stack.is_empty() {
+            let cur = self.interpolation_stack.last().unwrap();
+
+            while lexer.lookahead == '"' as i32 {
+                lexer.advance(false);
+                quote_count = quote_count.wrapping_add(1);
+            }
+
+            if quote_count == cur.quote_count {
+                lexer.result_symbol = tok::INTERPOLATION_END_QUOTE;
+                self.interpolation_stack.pop();
+                return true;
+            }
+
+            did_advance = quote_count > 0;
+        }
+
+        if v(tok::INTERPOLATION_OPEN_BRACE) && !self.interpolation_stack.is_empty() {
+            let cur = self.interpolation_stack.last_mut().unwrap();
+
+            while lexer.lookahead == '{' as i32 && brace_advanced < cur.dollar_count {
+                lexer.advance(false);
+                brace_advanced = brace_advanced.wrapping_add(1);
+            }
+
+            if brace_advanced > 0
+                && brace_advanced == cur.dollar_count
+                && (brace_advanced == 0 || lexer.lookahead != '{' as i32)
+            {
+                cur.open_brace_count = brace_advanced;
+                lexer.result_symbol = tok::INTERPOLATION_OPEN_BRACE;
+                return true;
+            }
+        }
+
+        if v(tok::INTERPOLATION_CLOSE_BRACE) && !self.interpolation_stack.is_empty() {
+            let mut brace_advanced = 0u8; // shadows the outer one, as in C
+            let cur = self.interpolation_stack.last_mut().unwrap();
+
+            while iswspace(lexer.lookahead) {
+                lexer.advance(false);
+            }
+
+            while lexer.lookahead == '}' as i32 {
+                lexer.advance(false);
+                brace_advanced = brace_advanced.wrapping_add(1);
+
+                if brace_advanced == cur.open_brace_count {
+                    cur.open_brace_count = 0;
+                    lexer.result_symbol = tok::INTERPOLATION_CLOSE_BRACE;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if v(tok::INTERPOLATION_STRING_CONTENT) && !self.interpolation_stack.is_empty() {
+            lexer.result_symbol = tok::INTERPOLATION_STRING_CONTENT;
+            let cur = self.interpolation_stack.last().unwrap();
+
+            while lexer.lookahead != 0 {
+                // top-down approach, first see if it's raw
+                if cur.is_raw() {
+                    if lexer.lookahead == '"' as i32 {
+                        lexer.mark_end();
+                        lexer.advance(false);
+                        if lexer.lookahead == '"' as i32 {
+                            lexer.advance(false);
+                            let mut quote_advanced = 2u8;
+                            while lexer.lookahead == '"' as i32 {
+                                quote_advanced = quote_advanced.wrapping_add(1);
+                                lexer.advance(false);
+                            }
+                            if quote_advanced == cur.quote_count {
+                                return did_advance;
+                            }
+                        }
+                    }
+
+                    if lexer.lookahead == '{' as i32 {
+                        lexer.mark_end();
+
+                        while lexer.lookahead == '{' as i32 && brace_advanced < cur.open_brace_count
+                        {
+                            lexer.advance(false);
+                            brace_advanced = brace_advanced.wrapping_add(1);
+                        }
+
+                        if brace_advanced == cur.open_brace_count
+                            && (brace_advanced == 0 || lexer.lookahead != '{' as i32)
+                        {
+                            return did_advance;
+                        }
+                    }
+                } else if cur.is_verbatim() {
+                    // then verbatim, since it could be verbatim + raw, but run the raw branch first
+                    if lexer.lookahead == '"' as i32 {
+                        lexer.mark_end();
+                        lexer.advance(false);
+                        if lexer.lookahead == '"' as i32 {
+                            lexer.advance(false);
+                            continue;
+                        }
+                        return did_advance;
+                    }
+
+                    if lexer.lookahead == '{' as i32 {
+                        lexer.mark_end();
+
+                        while lexer.lookahead == '{' as i32 && brace_advanced < cur.open_brace_count
+                        {
+                            lexer.advance(false);
+                            brace_advanced = brace_advanced.wrapping_add(1);
+                        }
+
+                        if brace_advanced == cur.open_brace_count
+                            && (brace_advanced == 0 || lexer.lookahead != '{' as i32)
+                        {
+                            return did_advance;
+                        }
+                    }
+                } else if cur.is_regular() {
+                    // finally regular
+                    if lexer.lookahead == '\\' as i32
+                        || lexer.lookahead == '\n' as i32
+                        || lexer.lookahead == '"' as i32
+                    {
+                        lexer.mark_end();
+                        return did_advance;
+                    }
+
+                    if lexer.lookahead == '{' as i32 {
+                        lexer.mark_end();
+
+                        while lexer.lookahead == '{' as i32 && brace_advanced < cur.open_brace_count
+                        {
+                            lexer.advance(false);
+                            brace_advanced = brace_advanced.wrapping_add(1);
+                        }
+
+                        // in a brace, never collect more than open_brace_count
+                        if brace_advanced == cur.open_brace_count
+                            && (brace_advanced == 0 || lexer.lookahead != '{' as i32)
+                        {
+                            return did_advance;
+                        }
+                    }
+                }
+
+                if lexer.lookahead != '{' as i32 {
+                    brace_advanced = 0;
+                }
+                lexer.advance(false);
+                did_advance = true;
+            }
+
+            lexer.mark_end();
+            return did_advance;
+        }
+
+        false
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]

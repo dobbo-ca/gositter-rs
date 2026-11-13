@@ -10,7 +10,6 @@ fn language(dir: &str) -> &'static Language {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn scanner_reuse_across_languages() {
     let (python, bash, go) = (language("python"), language("bash"), language("go"));
     let py: &[u8] = b"if a:\n    x = f\"a{b}\"\n";
@@ -49,7 +48,6 @@ fn scanner_reuse_across_languages() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn set_language_drops_kept_scanner() {
     let mut p = Parser::new();
     p.set_language(language("bash")).unwrap();

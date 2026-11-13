@@ -36,11 +36,14 @@ fn dense_lookup_json() {
 fn dense_lookup_wired() {
     let mut errs = Vec::new();
     for dir in [
+        "bash",
         "c",
+        "cpp",
         "go",
         "java",
         "javascript",
         "python",
+        "rust",
         "tsx",
         "typescript",
         "verilog",

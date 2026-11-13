@@ -184,11 +184,14 @@ macro_rules! regress_wired {
 }
 
 regress_wired! {
+    regress_bash => "bash",
     regress_c => "c",
+    regress_cpp => "cpp",
     regress_go => "go",
     regress_java => "java",
     regress_javascript => "javascript",
     regress_python => "python",
+    regress_rust => "rust",
     regress_tsx => "tsx",
     regress_typescript => "typescript",
     regress_verilog => "verilog",
@@ -206,8 +209,6 @@ macro_rules! regress_tests {
 }
 
 regress_tests! {
-    regress_bash => "bash",
-    regress_cpp => "cpp",
     regress_c_sharp => "c-sharp",
     regress_hcl => "hcl",
     regress_julia => "julia",
@@ -215,7 +216,6 @@ regress_tests! {
     regress_lua => "lua",
     regress_php => "php",
     regress_ruby => "ruby",
-    regress_rust => "rust",
     regress_scala => "scala",
 }
 

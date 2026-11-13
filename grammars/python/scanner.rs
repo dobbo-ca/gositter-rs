@@ -131,7 +131,9 @@ impl Scanner {
         let within_brackets =
             valid(Tok::CloseBrace) || valid(Tok::CloseParen) || valid(Tok::CloseBracket);
 
-        let mut advanced_once = false;
+        // C and gositter set advanced_once = true only right before two returns, so it is
+        // always false where it is read; the store is left out (clippy: unused_assignments).
+        let advanced_once = false;
         if valid(Tok::EscapeInterpolation)
             && !self.delimiters.is_empty()
             && (l.lookahead == b'{' as i32 || l.lookahead == b'}' as i32)
@@ -142,7 +144,6 @@ impl Scanner {
                 l.mark_end();
                 let is_left_brace = l.lookahead == b'{' as i32;
                 l.advance(false);
-                advanced_once = true;
                 if (l.lookahead == b'{' as i32 && is_left_brace)
                     || (l.lookahead == b'}' as i32 && !is_left_brace)
                 {

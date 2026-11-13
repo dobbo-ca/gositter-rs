@@ -1367,7 +1367,7 @@ impl SubtreePool {
             h.first_leaf_parse_state = a.parse_state;
         }
         if af & F_VISIBLE != 0 {
-            visible_descendant_count += 1;
+            visible_descendant_count = visible_descendant_count.wrapping_add(1);
             visible_child_count = 1;
             if af & F_NAMED != 0 {
                 named_child_count = 1;
@@ -1377,19 +1377,20 @@ impl SubtreePool {
             named_child_count = a.named_child_count;
         }
         if b.child_count > 0 {
-            visible_descendant_count += b.visible_descendant_count;
+            visible_descendant_count =
+                visible_descendant_count.wrapping_add(b.visible_descendant_count);
             dynamic_precedence = dynamic_precedence.wrapping_add(b.dynamic_precedence);
             kinds |= b.kinds();
         }
         if bf & F_VISIBLE != 0 {
-            visible_descendant_count += 1;
-            visible_child_count += 1;
+            visible_descendant_count = visible_descendant_count.wrapping_add(1);
+            visible_child_count = visible_child_count.wrapping_add(1);
             if bf & F_NAMED != 0 {
-                named_child_count += 1;
+                named_child_count = named_child_count.wrapping_add(1);
             }
         } else if b.child_count > 0 {
-            visible_child_count += b.visible_child_count;
-            named_child_count += b.named_child_count;
+            visible_child_count = visible_child_count.wrapping_add(b.visible_child_count);
+            named_child_count = named_child_count.wrapping_add(b.named_child_count);
         }
         h.visible_child_count = visible_child_count;
         h.named_child_count = named_child_count;
@@ -1518,10 +1519,10 @@ impl SubtreePool {
                             if self_is_error && child.0 & INL_EXTRA == 0 {
                                 error_cost = error_cost.wrapping_add(ERROR_COST_PER_SKIPPED_TREE);
                             }
-                            visible_descendant_count += 1;
-                            visible_child_count += 1;
+                            visible_descendant_count = visible_descendant_count.wrapping_add(1);
+                            visible_child_count = visible_child_count.wrapping_add(1);
                             if child.0 & INL_NAMED != 0 {
-                                named_child_count += 1;
+                                named_child_count = named_child_count.wrapping_add(1);
                             }
                         }
                         // lang.kind_bit: an inline symbol is never SYMBOL_ERROR
@@ -1575,7 +1576,8 @@ impl SubtreePool {
                     if grandchild_count > 0 {
                         kinds |= ch.kinds();
                         dynamic_precedence = dynamic_precedence.wrapping_add(ch.dynamic_precedence);
-                        visible_descendant_count += ch.visible_descendant_count;
+                        visible_descendant_count =
+                            visible_descendant_count.wrapping_add(ch.visible_descendant_count);
                     }
                     if cf & F_VISIBLE != 0 {
                         if self_is_error
@@ -1584,10 +1586,10 @@ impl SubtreePool {
                         {
                             error_cost = error_cost.wrapping_add(ERROR_COST_PER_SKIPPED_TREE);
                         }
-                        visible_descendant_count += 1;
-                        visible_child_count += 1;
+                        visible_descendant_count = visible_descendant_count.wrapping_add(1);
+                        visible_child_count = visible_child_count.wrapping_add(1);
                         if cf & F_NAMED != 0 {
-                            named_child_count += 1;
+                            named_child_count = named_child_count.wrapping_add(1);
                         }
                     } else if grandchild_count > 0 {
                         if self_is_error && cf & F_EXTRA == 0 {
@@ -1595,8 +1597,9 @@ impl SubtreePool {
                                 ERROR_COST_PER_SKIPPED_TREE.wrapping_mul(ch.visible_child_count),
                             );
                         }
-                        visible_child_count += ch.visible_child_count;
-                        named_child_count += ch.named_child_count;
+                        visible_child_count =
+                            visible_child_count.wrapping_add(ch.visible_child_count);
+                        named_child_count = named_child_count.wrapping_add(ch.named_child_count);
                     }
                 }
             }
@@ -1707,26 +1710,28 @@ impl SubtreePool {
                     }
 
                     dynamic_precedence = dynamic_precedence.wrapping_add(c_dynamic_precedence);
-                    visible_descendant_count += c_visible_descendant_count;
+                    visible_descendant_count =
+                        visible_descendant_count.wrapping_add(c_visible_descendant_count);
                     kinds |= lang.kind_bit(c_symbol);
 
                     let alias = lang.tables.alias_sequences.get(seq + structural_index);
                     if alias != 0 && !child_extra {
                         kinds |= lang.kind_bit(alias);
-                        visible_descendant_count += 1;
-                        visible_child_count += 1;
+                        visible_descendant_count = visible_descendant_count.wrapping_add(1);
+                        visible_child_count = visible_child_count.wrapping_add(1);
                         if lang.symbol_metadata(alias).named {
-                            named_child_count += 1;
+                            named_child_count = named_child_count.wrapping_add(1);
                         }
                     } else if child_visible {
-                        visible_descendant_count += 1;
-                        visible_child_count += 1;
+                        visible_descendant_count = visible_descendant_count.wrapping_add(1);
+                        visible_child_count = visible_child_count.wrapping_add(1);
                         if child_named {
-                            named_child_count += 1;
+                            named_child_count = named_child_count.wrapping_add(1);
                         }
                     } else if grandchild_count > 0 {
-                        visible_child_count += c_visible_child_count;
-                        named_child_count += c_named_child_count;
+                        visible_child_count =
+                            visible_child_count.wrapping_add(c_visible_child_count);
+                        named_child_count = named_child_count.wrapping_add(c_named_child_count);
                     }
 
                     if !child_extra {
@@ -1881,14 +1886,14 @@ impl SubtreePool {
         let alias = alias_sequence.map_or(0, |seq| lang.tables.alias_sequences.get(seq));
         if alias != 0 && !child_extra {
             kinds |= lang.kind_bit(alias);
-            h.visible_descendant_count += 1;
+            h.visible_descendant_count = h.visible_descendant_count.wrapping_add(1);
             visible_child_count = 1;
             named_child_count = 0;
             if lang.symbol_metadata(alias).named {
                 named_child_count = 1;
             }
         } else if child_visible {
-            h.visible_descendant_count += 1;
+            h.visible_descendant_count = h.visible_descendant_count.wrapping_add(1);
             visible_child_count = 1;
             named_child_count = 0;
             if child_named {

@@ -35,7 +35,12 @@ pub const DIRS: [&str; 21] = [
 /// (plan Task 15 adds each one as it lands).
 pub fn language(dir: &str) -> Option<&'static Language> {
     match dir {
+        "c" => Some(gositter_grammars::c::language()),
+        "go" => Some(gositter_grammars::golang::language()),
+        "java" => Some(gositter_grammars::java::language()),
         "json" => Some(gositter_grammars::json::language()),
+        "verilog" => Some(gositter_grammars::verilog::language()),
+        "zig" => Some(gositter_grammars::zig::language()),
         _ => None,
     }
 }

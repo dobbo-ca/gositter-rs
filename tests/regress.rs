@@ -173,6 +173,24 @@ fn regress_json() {
     regress("json");
 }
 
+// The grammars wired in gositter-grammars run; the rest wait for their wiring (gositter-rs-2f0.15).
+macro_rules! regress_wired {
+    ($($name:ident => $dir:literal,)*) => {$(
+        #[test]
+        fn $name() {
+            regress($dir);
+        }
+    )*};
+}
+
+regress_wired! {
+    regress_c => "c",
+    regress_go => "go",
+    regress_java => "java",
+    regress_verilog => "verilog",
+    regress_zig => "zig",
+}
+
 macro_rules! regress_tests {
     ($($name:ident => $dir:literal,)*) => {$(
         #[test]
@@ -185,12 +203,9 @@ macro_rules! regress_tests {
 
 regress_tests! {
     regress_bash => "bash",
-    regress_c => "c",
     regress_cpp => "cpp",
     regress_c_sharp => "c-sharp",
-    regress_go => "go",
     regress_hcl => "hcl",
-    regress_java => "java",
     regress_javascript => "javascript",
     regress_julia => "julia",
     regress_kotlin => "kotlin",
@@ -202,8 +217,6 @@ regress_tests! {
     regress_scala => "scala",
     regress_tsx => "tsx",
     regress_typescript => "typescript",
-    regress_verilog => "verilog",
-    regress_zig => "zig",
 }
 
 /// Checks the summaries of the last tree of `p` and adds the counts to `sum`.

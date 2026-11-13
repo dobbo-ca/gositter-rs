@@ -334,7 +334,6 @@ fn error_recovery_memory() {
 // A reset hands the heap chunks of a large parse to the pool all parsers
 // share. A parser that takes them over as they are must build the same tree.
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn heap_chunks_reused() {
     common::run_on_big_stack(|| {
         let src = "func f() { g(1, 2, 3) }\n".repeat(5000);
@@ -362,7 +361,6 @@ fn heap_chunks_reused() {
 // A reset keeps the children slab of a large parse for the next one, and
 // drops it once a parse has used a small part of it.
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn children_slab_dropped() {
     common::run_on_big_stack(|| {
         let large = "func f() { g(1, 2, 3) }\n".repeat(20000);
@@ -492,7 +490,6 @@ fn budget_boundary(lang: &'static Language, src: &[u8], render: fn(&Tree, &[u8])
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn parse_budget_boundary() {
     common::run_on_big_stack(|| {
         let src = "func f() { g(1, 2, 3 }\n".repeat(100);
@@ -559,7 +556,6 @@ fn parse_budget_count_stable_json() {
 // A deep stack's slabs go to the free lists at reset, as children slabs, and
 // a warm parser takes them back.
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn stack_slabs_dropped() {
     common::run_on_big_stack(|| {
         let deep = "func f() {".to_string() + &"g(".repeat(10000);
@@ -590,7 +586,6 @@ fn stack_slabs_dropped() {
 // After a huge input gives up its slabs, a small parse takes slabs of
 // at most 4 times its need.
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn small_parse_takes_small_slabs() {
     common::run_on_big_stack(|| {
         let huge = "func f() {".to_string()
@@ -621,7 +616,6 @@ fn small_parse_takes_small_slabs() {
 // Parsers on 8 threads pass slabs through the shared free lists. Each tree
 // must be the one a lone parser builds.
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn slabs_across_parsers() {
     common::run_on_big_stack(|| {
         let line = "func f() { g(1, 2, 3) }\n";

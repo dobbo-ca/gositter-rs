@@ -62,7 +62,6 @@ fn collect(p: &mut Parser) -> Messages {
 // The trees for these inputs were compared node for node with the C runtime
 // (oracle cmp); the strings pin them.
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn parse_json_string() {
     let cases: [(&[u8], &str); 7] = [
         (
@@ -86,7 +85,6 @@ fn parse_json_string() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn node_api() {
     let src = br#"{"k": [10, "s"]}"#;
     let mut p = parser(grammar("json"));
@@ -180,7 +178,6 @@ fn node_api() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn parser_reuse_and_no_language() {
     assert!(
         Parser::new().parse(b"1").is_none(),
@@ -213,7 +210,6 @@ fn parser_reuse_and_no_language() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn logger_messages() {
     let mut p = parser(grammar("json"));
     let log = collect(&mut p);
@@ -273,7 +269,6 @@ fn error_recovery_case(name: &str, dir: &str, src: &[u8], limit: usize) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn error_recovery_memory_json() {
     common::run_on_big_stack(|| {
         error_recovery_case(
@@ -453,7 +448,6 @@ fn parse_budget_stops() {
 
 /// The json twin of `parse_budget_stops` (plan Task 11 Step 1).
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn parse_budget_stops_json() {
     let json = grammar("json");
     let stuck = r#"[1, 2, {"a": [3, 4}"#.repeat(200);
@@ -507,7 +501,6 @@ fn parse_budget_boundary() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn parse_budget_boundary_json() {
     // treedump recurses once per level (Review Focus 2).
     common::run_on_big_stack(|| {
@@ -558,7 +551,6 @@ fn parse_budget_count_stable() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn parse_budget_count_stable_json() {
     let src = r#"[1, 2, {"a": [3, 4}"#.repeat(200);
     budget_count_stable("json", grammar("json"), src.as_bytes());
@@ -670,7 +662,6 @@ fn slabs_across_parsers() {
 
 /// Plan Task 11 Step 1: C cuts log messages at 1,023 bytes, which can split a character.
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn log_lines_cut_at_1023() {
     let json = grammar("json");
     let long = "\u{e9}".repeat(1000);
@@ -702,7 +693,6 @@ fn log_lines_cut_at_1023() {
 /// Review Focus 1: a kind named after a parse is not in that tree's mask bits; the next
 /// parse has it.
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn kind_mask_after_parse() {
     // A fresh copy: its kind bits are this test's alone.
     let lang: &'static Language = Box::leak(Box::new(Language::new(grammar("json").tables)));

@@ -7,7 +7,6 @@ mod common;
 use gositter::Parser;
 
 #[test]
-#[ignore = "gositter-rs-2f0.11"]
 fn graphify_api() {
     let src = br#"{"k": [10, "s"]}"#;
     let json = common::language("json").expect("json grammar");

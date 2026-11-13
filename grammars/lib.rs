@@ -3,3 +3,6 @@
 //! is a hand port of gositter's `scanner.go`. A grammar is declared here once it compiles.
 
 pub mod cchar;
+
+/// `SerializationBufferSize` of gositter `api.go:25`. Moves to the runtime crate when its scanner trait lands.
+pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;

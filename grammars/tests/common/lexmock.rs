@@ -5,11 +5,14 @@
 #![allow(dead_code)] // each test crate uses part of it
 
 use gositter_grammars::lex::LexOps;
+use std::rc::Rc;
 
 const PRIME: u64 = 1099511628211;
 
 pub struct MockLexer {
-    input: Vec<i32>,
+    /// The shared text; the lexer sees `input[start..]` (no copy per run in the text test).
+    input: Rc<[i32]>,
+    start: usize,
     pos: u32,
     mark: u32,
     /// `advance` calls at end of input.
@@ -25,13 +28,28 @@ impl MockLexer {
     }
 
     fn load(&mut self) {
-        self.lookahead = self.input.get(self.pos as usize).copied().unwrap_or(0);
+        self.lookahead = self
+            .input
+            .get(self.start + self.pos as usize)
+            .copied()
+            .unwrap_or(0);
     }
 
     /// Calls `f` on `input` and returns the digest of what it did (`MockRun`).
     pub fn run(f: impl FnOnce(&mut MockLexer, u16) -> bool, state: u16, input: &[i32]) -> u64 {
+        Self::run_at(f, state, &Rc::from(input), 0)
+    }
+
+    /// `run` on `input[start..]`, without copying the input.
+    pub fn run_at(
+        f: impl FnOnce(&mut MockLexer, u16) -> bool,
+        state: u16,
+        input: &Rc<[i32]>,
+        start: usize,
+    ) -> u64 {
         let mut l = MockLexer {
-            input: input.to_vec(),
+            input: Rc::clone(input),
+            start,
             pos: 0,
             mark: 0,
             idle: 0,
@@ -55,7 +73,7 @@ impl LexOps for MockLexer {
     }
 
     fn eof(&self) -> bool {
-        self.pos as usize >= self.input.len()
+        self.start + self.pos as usize >= self.input.len()
     }
 
     fn advance(&mut self, skip: bool) {

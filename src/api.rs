@@ -359,10 +359,7 @@ pub struct Language {
 
 impl Language {
     pub const fn new(tables: LanguageTables) -> Language {
-        Language {
-            tables,
-            _derived: (),
-        }
+        Language { tables }
     }
 
     /// ts_language_symbol_name: "ERROR" and "_ERROR" for the builtins, `None` out of range.

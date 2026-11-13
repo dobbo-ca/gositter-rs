@@ -9,6 +9,8 @@ WORKDIR /src
 
 FROM toolchain AS src
 COPY . .
+# The regress goldens are committed gzipped; the tests read them unzipped (gositter-rs needs no gzip code).
+RUN find testdata/regress -name '*.dump.gz' -exec gunzip -k {} +
 
 # The checks run in the build, so a red check fails the build; a rerun of the same source is a
 # BuildKit cache hit.
@@ -39,6 +41,7 @@ ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
 
 FROM qemu-tools AS qemu-arm64
 COPY . .
+RUN find testdata/regress -name '*.dump.gz' -exec gunzip -k {} +
 
 # The full test suite for aarch64 under qemu-user.
 FROM qemu-arm64 AS arm64

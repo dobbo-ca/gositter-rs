@@ -8,6 +8,9 @@ pub mod cchar;
 pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;
 
 #[cfg(test)]
+#[path = "bash/scanner.rs"]
+mod bash_scanner;
+#[cfg(test)]
 #[path = "cpp/scanner.rs"]
 mod cpp_scanner;
 #[cfg(test)]
@@ -34,6 +37,9 @@ mod php_scanner;
 #[cfg(test)]
 #[path = "python/scanner.rs"]
 mod python_scanner;
+#[cfg(test)]
+#[path = "ruby/scanner.rs"]
+mod ruby_scanner;
 #[cfg(test)]
 #[path = "rust/scanner.rs"]
 mod rust_scanner;

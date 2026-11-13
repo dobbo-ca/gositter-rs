@@ -283,7 +283,6 @@ impl RandomTrees {
 /// summarize, summarize_two_heap and both loops of summarize_children against
 /// summarize_children_ref, on random nodes.
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn summarize_random() {
     let mut c = SummaryCheck::default();
     for seed in 0..300 {
@@ -303,7 +302,6 @@ fn summarize_random() {
 /// ts_parser__recover_to_state, must come out as one summarized from its first child. A
 /// summary left behind must not reach any other node.
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn summarize_resume() {
     let mut c = SummaryCheck::default();
     for seed in 0..300 {
@@ -494,7 +492,6 @@ fn balance_subtree(sp: &mut SubtreePool, finished_tree: Subtree, lang: &Language
 /// parser does it. The other half get one call: the passes of balancing summarize most
 /// nodes again and hide what a call leaves behind.
 #[test]
-#[ignore = "gositter-rs-2f0.8"]
 fn compress_random() {
     let mut column = 0;
     for seed in 0..2000u64 {

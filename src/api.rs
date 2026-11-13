@@ -266,7 +266,9 @@ pub const fn le_bytes<const N: usize, const M: usize>(v: &[u16; N]) -> [u8; M] {
 pub type LexFn = fn(&mut Lexer<'_>, StateId) -> bool;
 
 /// One instance of a grammar's external scanner (gositter CONTRACT.md section 7).
-pub trait ExternalScanner: Send {
+/// `Any` lets a test reach the concrete scanner the parser keeps (`&dyn ExternalScanner` upcasts
+/// to `&dyn Any`); a scanner owns its data, so it is `'static`.
+pub trait ExternalScanner: std::any::Any + Send {
     /// scan. `valid_symbols` has external_token_count entries. On success set
     /// `lexer.result_symbol` to the external token index.
     fn scan(&mut self, lexer: &mut Lexer<'_>, valid_symbols: &[bool]) -> bool;

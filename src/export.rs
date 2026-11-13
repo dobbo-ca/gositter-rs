@@ -2,7 +2,7 @@
 //! and the fuzz targets. Not part of the API.
 
 use crate::subtree::{Subtree, SubtreeHeap, SubtreePool};
-use crate::{Language, StateId, Symbol};
+use crate::{ExternalScanner, Language, Parser, StateId, Symbol};
 
 impl Language {
     /// Compares the comb small-table lookup with the C scan for every small state and every
@@ -114,4 +114,14 @@ pub(crate) fn check_summary(
     _c: &mut SummaryCheck,
 ) {
     todo!("gositter-rs-2f0.8")
+}
+
+impl Parser {
+    /// The scanner the parser keeps for its next parse in the same language (gositter
+    /// `KeptScanner`). A test upcasts it to `&dyn Any` and downcasts it to the grammar's
+    /// scanner type.
+    #[doc(hidden)]
+    pub fn kept_scanner(&self) -> Option<&dyn ExternalScanner> {
+        todo!("gositter-rs-2f0.11")
+    }
 }

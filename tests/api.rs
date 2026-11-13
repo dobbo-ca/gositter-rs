@@ -237,3 +237,28 @@ fn language_tables_are_const_and_clone_keeps_them() {
     });
     assert_eq!(changed.tables.abi_version, 12);
 }
+
+struct Dummy(u8);
+
+impl ExternalScanner for Dummy {
+    fn scan(&mut self, _: &mut Lexer<'_>, _: &[bool]) -> bool {
+        false
+    }
+    fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
+        buf[0] = self.0;
+        1
+    }
+    fn deserialize(&mut self, buf: &[u8]) {
+        self.0 = buf.first().copied().unwrap_or(0);
+    }
+}
+
+#[test]
+fn a_kept_scanner_downcasts_to_its_type() {
+    // docs/CONTRACT_CHANGES.md 2026-11-13: the reset tests reach the scanner the parser keeps.
+    let boxed: Box<dyn ExternalScanner> = Box::new(Dummy(7));
+    let scanner: &dyn ExternalScanner = &*boxed;
+    let any: &dyn std::any::Any = scanner;
+    assert_eq!(any.downcast_ref::<Dummy>().map(|d| d.0), Some(7));
+    assert!(any.downcast_ref::<u8>().is_none());
+}

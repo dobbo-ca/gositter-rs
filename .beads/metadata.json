@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "gositter_rs",
+  "project_id": "8fc10f9a-6669-410b-bd64-0498da6e8270"
+}

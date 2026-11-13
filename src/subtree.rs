@@ -169,11 +169,11 @@ fn new_heap_chunk() -> Box<HeapChunk> {
 }
 
 /// A reset keeps KEPT_HEAP_CHUNKS chunks and drops the rest.
-pub(crate) const KEPT_HEAP_CHUNKS: usize = 8;
+pub const KEPT_HEAP_CHUNKS: usize = 8;
 
 /// A reset shrinks a children slab above SHRINK_CHILDREN entries to its initial size when
 /// the parse before it used under an eighth of it.
-pub(crate) const SHRINK_CHILDREN: usize = 1 << 16;
+pub const SHRINK_CHILDREN: usize = 1 << 16;
 
 /// The capacity a children slab starts with (getChildSlab(4096)).
 const INITIAL_CHILDREN: usize = 4096;

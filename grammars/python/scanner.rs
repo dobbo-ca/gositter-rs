@@ -17,24 +17,74 @@ pub struct Scanner {
     inside_interpolated_string: bool,
 }
 
+impl Default for Scanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Scanner {
     pub fn new() -> Self {
-        todo!()
+        let mut s = Scanner {
+            indents: Vec::new(),
+            delimiters: Vec::new(),
+            inside_interpolated_string: false,
+        };
+        s.deserialize(&[]);
+        s
     }
 
     /// The state `new` returns, with the buffers kept.
     pub fn reset(&mut self) {
-        todo!()
+        self.inside_interpolated_string = false;
+        self.deserialize(&[]);
     }
 
     pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = buf;
-        todo!()
+        buf[0] = u8::from(self.inside_interpolated_string);
+        let delimiter_count = self.delimiters.len().min(255);
+        buf[1] = delimiter_count as u8;
+        let mut size = 2;
+
+        buf[size..size + delimiter_count].copy_from_slice(&self.delimiters[..delimiter_count]);
+        size += delimiter_count;
+
+        // C tests only size < 1024 and then writes two bytes. With an odd delimiter count and 511+
+        // indents (511 nested blocks, then a string start) it writes one byte past the buffer and
+        // returns 1025; the runtime's ts_assert(length <= 1024) then aborts the process. There is
+        // no C tree to match, so stop one pair earlier.
+        for indent in self.indents.iter().skip(1) {
+            if size + 1 >= buf.len() {
+                break;
+            }
+            buf[size..size + 2].copy_from_slice(&indent.to_le_bytes());
+            size += 2;
+        }
+
+        size
     }
 
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
+        self.delimiters.clear();
+        self.indents.clear();
+        self.indents.push(0);
+        // inside_interpolated_string is not reset for an empty buffer; C leaves it.
+
+        if !buf.is_empty() {
+            self.inside_interpolated_string = buf[0] != 0;
+
+            let delimiter_count = usize::from(buf[1]);
+            let mut size = 2;
+            self.delimiters
+                .extend_from_slice(&buf[size..size + delimiter_count]);
+            size += delimiter_count;
+
+            self.indents.extend(
+                buf[size..]
+                    .chunks_exact(2)
+                    .map(|c| u16::from_le_bytes([c[0], c[1]])),
+            );
+        }
     }
 }
 

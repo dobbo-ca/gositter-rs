@@ -12,18 +12,25 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = buf;
-        todo!()
+        buf[0] = self.ending_char as u8;
+        buf[1] = self.level_count;
+        2
     }
 
     /// Length 0 leaves the state as it is, as C does.
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
+        if buf.is_empty() {
+            return;
+        }
+        self.ending_char = buf[0] as i8;
+        if buf.len() == 1 {
+            return;
+        }
+        self.level_count = buf[1];
     }
 }
 

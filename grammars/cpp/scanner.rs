@@ -18,22 +18,35 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     /// The state `new` returns.
     pub fn reset(&mut self) {
-        todo!()
+        *self = Self::default();
     }
 
     pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (buf, SIZEOF_WCHAR);
-        todo!()
+        let mut size = 0;
+        for c in &self.delimiter[..usize::from(self.delimiter_length)] {
+            buf[size..size + SIZEOF_WCHAR].copy_from_slice(&c.to_le_bytes());
+            size += SIZEOF_WCHAR;
+        }
+        size
     }
 
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
+        // C asserts length % sizeof(wchar_t) == 0. The runtime only passes back what `serialize`
+        // wrote, so at most 64 bytes in whole wchar_t units.
+        self.delimiter_length = (buf.len() / SIZEOF_WCHAR) as u8;
+        // Entries past the new length keep their old value, as with C's memcpy. Nothing reads them.
+        for (d, c) in self
+            .delimiter
+            .iter_mut()
+            .zip(buf.chunks_exact(SIZEOF_WCHAR))
+        {
+            *d = i32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+        }
     }
 }
 

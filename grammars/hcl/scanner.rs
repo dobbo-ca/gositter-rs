@@ -26,28 +26,77 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     /// `VEC_PUSH` with a fresh `string_new()` identifier; returns the new top.
     fn push(&mut self, typ: u32) -> &mut Context {
-        let _ = typ;
-        todo!()
+        self.context_stack.push(Context {
+            typ,
+            heredoc_identifier: Vec::new(),
+        });
+        self.context_stack.last_mut().unwrap()
     }
 
     /// The state `new` returns.
     pub fn reset(&mut self) {
-        todo!()
+        // Go keeps the spare slots and identifier buffers and gives them back past 16 slots or
+        // 1024 identifier bytes. A Vec drops its elements on clear, so only the slot count is left.
+        self.context_stack.clear();
+        // Give back what a huge input grew.
+        if self.context_stack.capacity() > 16 {
+            self.context_stack = Vec::new();
+        }
     }
 
     pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (buf, CHAR_MAX);
-        todo!()
+        if self.context_stack.len() > CHAR_MAX {
+            return 0;
+        }
+
+        buf[..4].copy_from_slice(&(self.context_stack.len() as u32).to_le_bytes());
+        let mut size = 4;
+        for ctx in &self.context_stack {
+            let id = &ctx.heredoc_identifier;
+            if size + 4 + 4 + id.len() >= buf.len() {
+                return 0;
+            }
+            if id.len() > CHAR_MAX {
+                return 0;
+            }
+            buf[size..size + 4].copy_from_slice(&ctx.typ.to_le_bytes());
+            size += 4;
+            buf[size..size + 4].copy_from_slice(&(id.len() as u32).to_le_bytes());
+            size += 4;
+            buf[size..size + id.len()].copy_from_slice(id);
+            size += id.len();
+        }
+        size
     }
 
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
+        self.context_stack.clear();
+
+        if buf.is_empty() {
+            return;
+        }
+
+        let u32_at =
+            |at: usize| u32::from_le_bytes([buf[at], buf[at + 1], buf[at + 2], buf[at + 3]]);
+        let mut size = 0;
+        let context_stack_size = u32_at(size);
+        size += 4;
+        for _ in 0..context_stack_size {
+            let ctx = self.push(u32_at(size));
+            size += 4;
+
+            let heredoc_identifier_size = u32_at(size) as usize;
+            size += 4;
+            ctx.heredoc_identifier
+                .extend_from_slice(&buf[size..size + heredoc_identifier_size]);
+            size += heredoc_identifier_size;
+        }
+        // C asserts size == length here; true for anything `serialize` wrote.
     }
 }
 

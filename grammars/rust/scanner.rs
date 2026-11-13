@@ -8,18 +8,20 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = buf;
-        todo!()
+        buf[0] = self.opening_hash_count;
+        1
     }
 
     /// C resets, then reads only when the length is exactly 1.
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
+        self.opening_hash_count = 0;
+        if let [b] = buf {
+            self.opening_hash_count = *b;
+        }
     }
 }
 

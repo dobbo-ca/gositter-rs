@@ -1,8 +1,7 @@
-//! Port of the scanner state of `grammars/bash/scanner.go` (tree-sitter-bash v0.25.1
-//! `src/scanner.c`): `new`, `serialize`, `deserialize` and `reset`. `scan` and the helpers only it
-//! uses (token enum, `isw*`, `advance_word`, ...) wait for the runtime `Lexer` (Task 12).
+//! Port of `grammars/bash/scanner.go` (tree-sitter-bash v0.25.1 `src/scanner.c`): the scanner
+//! state (`new`, `serialize`, `deserialize`, `reset`) and `scan` with the helpers it uses.
 
-use crate::SERIALIZATION_BUFFER_SIZE;
+use crate::{SERIALIZATION_BUFFER_SIZE, cchar};
 
 /// Heredoc. The two strings are C `Array(char)`: lookahead is cut to its low byte on push and
 /// read back as a char (`cchar::value`).
@@ -122,6 +121,1246 @@ impl Scanner {
             ..Scanner::default()
         };
     }
+}
+
+/// enum TokenType, in the order of the grammar's externals.
+#[derive(Clone, Copy)]
+#[allow(dead_code)] // Esac is never read or set by scan
+enum Tok {
+    HeredocStart,
+    SimpleHeredocBody,
+    HeredocBodyBeginning,
+    HeredocContent,
+    HeredocEnd,
+    FileDescriptor,
+    EmptyValue,
+    Concat,
+    VariableName,
+    TestOperator,
+    Regex,
+    RegexNoSlash,
+    RegexNoSpace,
+    ExpansionWord,
+    ExtglobPattern,
+    BareDollar,
+    BraceStart,
+    ImmediateDoubleHash,
+    ExternalExpansionSymHash,
+    ExternalExpansionSymBang,
+    ExternalExpansionSymEqual,
+    ClosingBrace,
+    ClosingBracket,
+    HeredocArrow,
+    HeredocArrowDash,
+    Newline,
+    OpeningParen,
+    Esac,
+    ErrorRecovery,
+}
+
+/// A char literal as the lexer's lookahead.
+const fn c(ch: char) -> i32 {
+    ch as i32
+}
+
+// Patterns of the `switch (lexer->lookahead)` statements.
+const BSLASH: i32 = '\\' as i32;
+const DOLLAR: i32 = '$' as i32;
+const NL: i32 = '\n' as i32;
+const LPAREN: i32 = '(' as i32;
+const RPAREN: i32 = ')' as i32;
+const LBRACKET: i32 = '[' as i32;
+const RBRACKET: i32 = ']' as i32;
+const LBRACE: i32 = '{' as i32;
+const RBRACE: i32 = '}' as i32;
+const SQUOTE: i32 = '\'' as i32;
+
+// The isw* calls of C run in the "C" locale (nothing calls setlocale), where
+// macOS libc classifies ASCII only. -1 (invalid UTF-8) and 0 are in no class.
+
+/// iswspace
+fn iswspace(ch: i32) -> bool {
+    ch == c(' ') || (c('\t')..=c('\r')).contains(&ch)
+}
+
+/// iswalpha
+fn iswalpha(ch: i32) -> bool {
+    (c('a')..=c('z')).contains(&ch) || (c('A')..=c('Z')).contains(&ch)
+}
+
+/// iswdigit, isdigit
+fn iswdigit(ch: i32) -> bool {
+    (c('0')..=c('9')).contains(&ch)
+}
+
+/// iswalnum
+fn iswalnum(ch: i32) -> bool {
+    iswalpha(ch) || iswdigit(ch)
+}
+
+/// advance_word
+fn advance_word(l: &mut gositter::Lexer<'_>, unquoted_word: &mut Vec<u8>) -> bool {
+    let mut empty = true;
+
+    let mut quote = 0;
+    if l.lookahead == c('\'') || l.lookahead == c('"') {
+        quote = l.lookahead;
+        l.advance(false);
+    }
+
+    while l.lookahead != 0 {
+        if quote != 0 {
+            if l.lookahead == quote || l.lookahead == c('\r') || l.lookahead == c('\n') {
+                break;
+            }
+        } else if iswspace(l.lookahead) {
+            break;
+        }
+        if l.lookahead == c('\\') {
+            l.advance(false);
+            if l.lookahead == 0 {
+                return false;
+            }
+        }
+        empty = false;
+        unquoted_word.push(l.lookahead as u8);
+        l.advance(false);
+    }
+    unquoted_word.push(0);
+
+    if quote != 0 && l.lookahead == quote {
+        l.advance(false);
+    }
+
+    !empty
+}
+
+/// scan_bare_dollar
+fn scan_bare_dollar(l: &mut gositter::Lexer<'_>) -> bool {
+    while iswspace(l.lookahead) && l.lookahead != c('\n') && !l.eof() {
+        l.advance(true);
+    }
+
+    if l.lookahead == c('$') {
+        l.advance(false);
+        l.result_symbol = Tok::BareDollar as gositter::Symbol;
+        l.mark_end();
+        return iswspace(l.lookahead) || l.eof() || l.lookahead == c('"');
+    }
+
+    false
+}
+
+/// scan_heredoc_start
+fn scan_heredoc_start(h: &mut Heredoc, l: &mut gositter::Lexer<'_>) -> bool {
+    while iswspace(l.lookahead) {
+        l.advance(true);
+    }
+
+    l.result_symbol = Tok::HeredocStart as gositter::Symbol;
+    h.is_raw = l.lookahead == c('\'') || l.lookahead == c('"') || l.lookahead == c('\\');
+
+    // Appends to whatever the delimiter already holds, as C does.
+    let found_delimiter = advance_word(l, &mut h.delimiter);
+    if !found_delimiter {
+        h.delimiter.clear();
+        return false;
+    }
+    found_delimiter
+}
+
+/// strcmp(a, b) == 0
+fn cstr_equal(a: &[u8], b: &[u8]) -> bool {
+    for (x, y) in a.iter().zip(b) {
+        if x != y {
+            return false;
+        }
+        if *x == 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// scan_heredoc_end_identifier
+fn scan_heredoc_end_identifier(h: &mut Heredoc, l: &mut gositter::Lexer<'_>) -> bool {
+    h.current_leading_word.clear();
+    // Scan the first 'n' characters on this line, to see if they match the
+    // heredoc delimiter
+    let mut size = 0;
+    if !h.delimiter.is_empty() {
+        // A non-empty delimiter ends in NUL and lookahead is not 0 here, so
+        // size stays in bounds. Where char is signed, 0xFF equals the -1 of
+        // an invalid UTF-8 byte and 0x80..0xFE equal nothing; where it is
+        // unsigned (linux/arm64), 0x80..0xFF equal U+0080..U+00FF.
+        while l.lookahead != 0
+            && l.lookahead != c('\n')
+            && size < h.delimiter.len()
+            && cchar::value(h.delimiter[size]) == l.lookahead
+            && h.current_leading_word.len() < h.delimiter.len()
+        {
+            h.current_leading_word.push(l.lookahead as u8);
+            l.advance(false);
+            size += 1;
+        }
+    }
+    h.current_leading_word.push(0);
+    if h.delimiter.is_empty() {
+        return false;
+    }
+    cstr_equal(&h.current_leading_word, &h.delimiter)
+}
+
+impl Scanner {
+    /// scan_heredoc_content
+    fn scan_heredoc_content(
+        &mut self,
+        l: &mut gositter::Lexer<'_>,
+        middle_type: gositter::Symbol,
+        end_type: gositter::Symbol,
+    ) -> bool {
+        let mut did_advance = false;
+        let h = self.heredocs.last_mut().unwrap();
+
+        loop {
+            match l.lookahead {
+                0 => {
+                    if l.eof() && did_advance {
+                        h.reset();
+                        l.result_symbol = end_type;
+                        return true;
+                    }
+                    return false;
+                }
+
+                BSLASH => {
+                    did_advance = true;
+                    l.advance(false);
+                    l.advance(false);
+                }
+
+                // `break` of the C switch leaves the labeled block.
+                DOLLAR => 'sw: {
+                    if h.is_raw {
+                        did_advance = true;
+                        l.advance(false);
+                        break 'sw;
+                    }
+                    if did_advance {
+                        l.mark_end();
+                        l.result_symbol = middle_type;
+                        h.started = true;
+                        l.advance(false);
+                        if iswalpha(l.lookahead) || l.lookahead == c('{') || l.lookahead == c('(') {
+                            return true;
+                        }
+                        break 'sw;
+                    }
+                    if middle_type == Tok::HeredocBodyBeginning as gositter::Symbol
+                        && l.get_column() == 0
+                    {
+                        l.result_symbol = middle_type;
+                        h.started = true;
+                        return true;
+                    }
+                    return false;
+                }
+
+                NL => {
+                    if !did_advance {
+                        l.advance(true);
+                    } else {
+                        l.advance(false);
+                    }
+                    did_advance = true;
+                    if h.allows_indent {
+                        while iswspace(l.lookahead) {
+                            l.advance(false);
+                        }
+                    }
+                    if h.started {
+                        l.result_symbol = middle_type;
+                    } else {
+                        l.result_symbol = end_type;
+                    }
+                    l.mark_end();
+                    if scan_heredoc_end_identifier(h, l) {
+                        if l.result_symbol == Tok::HeredocEnd as gositter::Symbol {
+                            self.heredocs.pop();
+                        }
+                        return true;
+                    }
+                }
+
+                _ => {
+                    if l.get_column() == 0 {
+                        // an alternative is to check the starting column of the
+                        // heredoc body and track that statefully
+                        while iswspace(l.lookahead) {
+                            if did_advance {
+                                l.advance(false);
+                            } else {
+                                l.advance(true);
+                            }
+                        }
+                        if end_type != Tok::SimpleHeredocBody as gositter::Symbol {
+                            l.result_symbol = middle_type;
+                            if scan_heredoc_end_identifier(h, l) {
+                                return true;
+                            }
+                        }
+                        if end_type == Tok::SimpleHeredocBody as gositter::Symbol {
+                            l.result_symbol = end_type;
+                            l.mark_end();
+                            if scan_heredoc_end_identifier(h, l) {
+                                return true;
+                            }
+                        }
+                    }
+                    did_advance = true;
+                    l.advance(false);
+                }
+            }
+        }
+    }
+}
+
+impl gositter::ExternalScanner for Scanner {
+    /// scan, tree_sitter_bash_external_scanner_scan. The gotos of C jump forward to labels:
+    /// `target` is the section a goto enters (2 regex, 3 extglob_pattern, 4 expansion_word,
+    /// 5 brace_start), 0 is the normal flow, and `break 'pre` is the jump.
+    fn scan(&mut self, l: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        let v = |t: Tok| valid_symbols[t as usize];
+        let mut target = 0u8;
+
+        'pre: {
+            if v(Tok::Concat) && !v(Tok::ErrorRecovery) {
+                let at_boundary = l.lookahead == 0
+                    || iswspace(l.lookahead)
+                    || l.lookahead == c('>')
+                    || l.lookahead == c('<')
+                    || l.lookahead == c(')')
+                    || l.lookahead == c('(')
+                    || l.lookahead == c(';')
+                    || l.lookahead == c('&')
+                    || l.lookahead == c('|')
+                    || (l.lookahead == c('}') && v(Tok::ClosingBrace))
+                    || (l.lookahead == c(']') && v(Tok::ClosingBracket));
+                if !at_boundary {
+                    l.result_symbol = Tok::Concat as gositter::Symbol;
+                    // So for a`b`, we want to return a concat. We check if the
+                    // 2nd backtick has whitespace after it, and if it does we
+                    // return concat.
+                    if l.lookahead == c('`') {
+                        l.mark_end();
+                        l.advance(false);
+                        while l.lookahead != c('`') && !l.eof() {
+                            l.advance(false);
+                        }
+                        if l.eof() {
+                            return false;
+                        }
+                        if l.lookahead == c('`') {
+                            l.advance(false);
+                        }
+                        return iswspace(l.lookahead) || l.eof();
+                    }
+                    // strings w/ expansions that contains escaped quotes or
+                    // backslashes need this to return a concat
+                    if l.lookahead == c('\\') {
+                        l.mark_end();
+                        l.advance(false);
+                        if l.lookahead == c('"') || l.lookahead == c('\'') || l.lookahead == c('\\')
+                        {
+                            return true;
+                        }
+                        if l.eof() {
+                            return false;
+                        }
+                    } else {
+                        return true;
+                    }
+                }
+                if iswspace(l.lookahead) && v(Tok::ClosingBrace) && !v(Tok::ExpansionWord) {
+                    l.result_symbol = Tok::Concat as gositter::Symbol;
+                    return true;
+                }
+            }
+
+            if v(Tok::ImmediateDoubleHash) && !v(Tok::ErrorRecovery) {
+                // advance two # and ensure not } after
+                if l.lookahead == c('#') {
+                    l.mark_end();
+                    l.advance(false);
+                    if l.lookahead == c('#') {
+                        l.advance(false);
+                        if l.lookahead != c('}') {
+                            l.result_symbol = Tok::ImmediateDoubleHash as gositter::Symbol;
+                            l.mark_end();
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            if v(Tok::ExternalExpansionSymHash)
+                && !v(Tok::ErrorRecovery)
+                && (l.lookahead == c('#') || l.lookahead == c('=') || l.lookahead == c('!'))
+            {
+                if l.lookahead == c('#') {
+                    l.result_symbol = Tok::ExternalExpansionSymHash as gositter::Symbol;
+                } else if l.lookahead == c('!') {
+                    l.result_symbol = Tok::ExternalExpansionSymBang as gositter::Symbol;
+                } else {
+                    l.result_symbol = Tok::ExternalExpansionSymEqual as gositter::Symbol;
+                }
+                l.advance(false);
+                l.mark_end();
+                while l.lookahead == c('#') || l.lookahead == c('=') || l.lookahead == c('!') {
+                    l.advance(false);
+                }
+                while iswspace(l.lookahead) {
+                    l.advance(true);
+                }
+                if l.lookahead == c('}') {
+                    return true;
+                }
+                return false;
+            }
+
+            if v(Tok::EmptyValue)
+                && (iswspace(l.lookahead)
+                    || l.eof()
+                    || l.lookahead == c(';')
+                    || l.lookahead == c('&'))
+            {
+                l.result_symbol = Tok::EmptyValue as gositter::Symbol;
+                return true;
+            }
+
+            if (v(Tok::HeredocBodyBeginning) || v(Tok::SimpleHeredocBody))
+                && self.heredocs.last().is_some_and(|h| !h.started)
+                && !v(Tok::ErrorRecovery)
+            {
+                return self.scan_heredoc_content(
+                    l,
+                    Tok::HeredocBodyBeginning as gositter::Symbol,
+                    Tok::SimpleHeredocBody as gositter::Symbol,
+                );
+            }
+
+            if v(Tok::HeredocEnd) && !self.heredocs.is_empty() {
+                let h = self.heredocs.last_mut().unwrap();
+                if scan_heredoc_end_identifier(h, l) {
+                    self.heredocs.pop();
+                    l.result_symbol = Tok::HeredocEnd as gositter::Symbol;
+                    return true;
+                }
+            }
+
+            if v(Tok::HeredocContent)
+                && self.heredocs.last().is_some_and(|h| h.started)
+                && !v(Tok::ErrorRecovery)
+            {
+                return self.scan_heredoc_content(
+                    l,
+                    Tok::HeredocContent as gositter::Symbol,
+                    Tok::HeredocEnd as gositter::Symbol,
+                );
+            }
+
+            if v(Tok::HeredocStart) && !v(Tok::ErrorRecovery) && !self.heredocs.is_empty() {
+                return scan_heredoc_start(self.heredocs.last_mut().unwrap(), l);
+            }
+
+            if v(Tok::TestOperator) && !v(Tok::ExpansionWord) {
+                while iswspace(l.lookahead) && l.lookahead != c('\n') {
+                    l.advance(true);
+                }
+
+                if l.lookahead == c('\\') {
+                    if v(Tok::ExtglobPattern) {
+                        target = 3; // goto extglob_pattern
+                        break 'pre;
+                    }
+                    if v(Tok::RegexNoSpace) {
+                        target = 2; // goto regex
+                        break 'pre;
+                    }
+                    l.advance(true);
+
+                    if l.eof() {
+                        return false;
+                    }
+
+                    if l.lookahead == c('\r') {
+                        l.advance(true);
+                        if l.lookahead == c('\n') {
+                            l.advance(true);
+                        }
+                    } else if l.lookahead == c('\n') {
+                        l.advance(true);
+                    } else {
+                        return false;
+                    }
+
+                    while iswspace(l.lookahead) {
+                        l.advance(true);
+                    }
+                }
+
+                if l.lookahead == c('\n') && !v(Tok::Newline) {
+                    l.advance(true);
+
+                    while iswspace(l.lookahead) {
+                        l.advance(true);
+                    }
+                }
+
+                if l.lookahead == c('-') {
+                    l.advance(false);
+
+                    let mut advanced_once = false;
+                    while iswalpha(l.lookahead) {
+                        advanced_once = true;
+                        l.advance(false);
+                    }
+
+                    if iswspace(l.lookahead) && advanced_once {
+                        l.mark_end();
+                        l.advance(false);
+                        if l.lookahead == c('}') && v(Tok::ClosingBrace) {
+                            if v(Tok::ExpansionWord) {
+                                l.mark_end();
+                                l.result_symbol = Tok::ExpansionWord as gositter::Symbol;
+                                return true;
+                            }
+                            return false;
+                        }
+                        l.result_symbol = Tok::TestOperator as gositter::Symbol;
+                        return true;
+                    }
+                    if iswspace(l.lookahead) && v(Tok::ExtglobPattern) {
+                        l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                        return true;
+                    }
+                }
+
+                if v(Tok::BareDollar) && !v(Tok::ErrorRecovery) && scan_bare_dollar(l) {
+                    return true;
+                }
+            }
+
+            if (v(Tok::VariableName) || v(Tok::FileDescriptor) || v(Tok::HeredocArrow))
+                && !v(Tok::RegexNoSlash)
+                && !v(Tok::ErrorRecovery)
+            {
+                loop {
+                    if (l.lookahead == c(' ')
+                        || l.lookahead == c('\t')
+                        || l.lookahead == c('\r')
+                        || (l.lookahead == c('\n') && !v(Tok::Newline)))
+                        && !v(Tok::ExpansionWord)
+                    {
+                        l.advance(true);
+                    } else if l.lookahead == c('\\') {
+                        l.advance(true);
+
+                        if l.eof() {
+                            l.mark_end();
+                            l.result_symbol = Tok::VariableName as gositter::Symbol;
+                            return true;
+                        }
+
+                        if l.lookahead == c('\r') {
+                            l.advance(true);
+                        }
+                        if l.lookahead == c('\n') {
+                            l.advance(true);
+                        } else {
+                            if l.lookahead == c('\\') && v(Tok::ExpansionWord) {
+                                target = 4; // goto expansion_word
+                                break 'pre;
+                            }
+                            return false;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                // no '*', '@', '?', '-', '$', '0', '_'
+                if !v(Tok::ExpansionWord)
+                    && (l.lookahead == c('*')
+                        || l.lookahead == c('@')
+                        || l.lookahead == c('?')
+                        || l.lookahead == c('-')
+                        || l.lookahead == c('0')
+                        || l.lookahead == c('_'))
+                {
+                    l.mark_end();
+                    l.advance(false);
+                    if l.lookahead == c('=')
+                        || l.lookahead == c('[')
+                        || l.lookahead == c(':')
+                        || l.lookahead == c('-')
+                        || l.lookahead == c('%')
+                        || l.lookahead == c('#')
+                        || l.lookahead == c('/')
+                    {
+                        return false;
+                    }
+                    if v(Tok::ExtglobPattern) && iswspace(l.lookahead) {
+                        l.mark_end();
+                        l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                        return true;
+                    }
+                }
+
+                if v(Tok::HeredocArrow) && l.lookahead == c('<') {
+                    l.advance(false);
+                    if l.lookahead == c('<') {
+                        l.advance(false);
+                        if l.lookahead == c('-') {
+                            l.advance(false);
+                            self.push_heredoc(true);
+                            l.result_symbol = Tok::HeredocArrowDash as gositter::Symbol;
+                        } else if l.lookahead == c('<') || l.lookahead == c('=') {
+                            return false;
+                        } else {
+                            self.push_heredoc(false);
+                            l.result_symbol = Tok::HeredocArrow as gositter::Symbol;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+
+                let mut is_number = true;
+                if iswdigit(l.lookahead) {
+                    l.advance(false);
+                } else if iswalpha(l.lookahead) || l.lookahead == c('_') {
+                    is_number = false;
+                    l.advance(false);
+                } else {
+                    if l.lookahead == c('{') {
+                        target = 5; // goto brace_start
+                        break 'pre;
+                    }
+                    if v(Tok::ExpansionWord) {
+                        target = 4; // goto expansion_word
+                        break 'pre;
+                    }
+                    if v(Tok::ExtglobPattern) {
+                        target = 3; // goto extglob_pattern
+                        break 'pre;
+                    }
+                    return false;
+                }
+
+                loop {
+                    if iswdigit(l.lookahead) {
+                        l.advance(false);
+                    } else if iswalpha(l.lookahead) || l.lookahead == c('_') {
+                        is_number = false;
+                        l.advance(false);
+                    } else {
+                        break;
+                    }
+                }
+
+                if is_number
+                    && v(Tok::FileDescriptor)
+                    && (l.lookahead == c('>') || l.lookahead == c('<'))
+                {
+                    l.result_symbol = Tok::FileDescriptor as gositter::Symbol;
+                    return true;
+                }
+
+                if v(Tok::VariableName) {
+                    if l.lookahead == c('+') {
+                        l.mark_end();
+                        l.advance(false);
+                        if l.lookahead == c('=') || l.lookahead == c(':') || v(Tok::ClosingBrace) {
+                            l.result_symbol = Tok::VariableName as gositter::Symbol;
+                            return true;
+                        }
+                        return false;
+                    }
+                    if l.lookahead == c('/') {
+                        return false;
+                    }
+                    if l.lookahead == c('=')
+                        || l.lookahead == c('[')
+                        || (l.lookahead == c(':') && !v(Tok::ClosingBrace) && !v(Tok::OpeningParen))
+                        || l.lookahead == c('%')
+                        || (l.lookahead == c('#') && !is_number)
+                        || l.lookahead == c('@')
+                        || (l.lookahead == c('-') && v(Tok::ClosingBrace))
+                    {
+                        l.mark_end();
+                        l.result_symbol = Tok::VariableName as gositter::Symbol;
+                        return true;
+                    }
+
+                    if l.lookahead == c('?') {
+                        l.mark_end();
+                        l.advance(false);
+                        l.result_symbol = Tok::VariableName as gositter::Symbol;
+                        return iswalpha(l.lookahead);
+                    }
+                }
+
+                return false;
+            }
+
+            if v(Tok::BareDollar) && !v(Tok::ErrorRecovery) && scan_bare_dollar(l) {
+                return true;
+            }
+        }
+
+        // regex:
+        if target <= 2
+            && (v(Tok::Regex) || v(Tok::RegexNoSlash) || v(Tok::RegexNoSpace))
+            && !v(Tok::ErrorRecovery)
+        {
+            if v(Tok::Regex) || v(Tok::RegexNoSpace) {
+                while iswspace(l.lookahead) {
+                    l.advance(true);
+                }
+            }
+
+            if (l.lookahead != c('"') && l.lookahead != c('\''))
+                || ((l.lookahead == c('$') || l.lookahead == c('\'')) && v(Tok::RegexNoSlash))
+                || (l.lookahead == c('\'') && v(Tok::RegexNoSpace))
+            {
+                if l.lookahead == c('$') && v(Tok::RegexNoSlash) {
+                    l.mark_end();
+                    l.advance(false);
+                    if l.lookahead == c('(') {
+                        return false;
+                    }
+                }
+
+                l.mark_end();
+
+                // State. The depths are uint32 and wrap below zero as in C.
+                let mut done = false;
+                let mut advanced_once = false;
+                let mut found_non_alnumdollarunderdash = false;
+                let mut last_was_escape = false;
+                let mut in_single_quote = false;
+                let mut paren_depth = 0u32;
+                let mut bracket_depth = 0u32;
+                let mut brace_depth = 0u32;
+                while !done {
+                    if in_single_quote && l.lookahead == c('\'') {
+                        in_single_quote = false;
+                        l.advance(false);
+                        l.mark_end();
+                    }
+                    match l.lookahead {
+                        BSLASH => last_was_escape = true,
+                        0 => return false,
+                        LPAREN => {
+                            paren_depth = paren_depth.wrapping_add(1);
+                            last_was_escape = false;
+                        }
+                        LBRACKET => {
+                            bracket_depth = bracket_depth.wrapping_add(1);
+                            last_was_escape = false;
+                        }
+                        LBRACE => {
+                            if !last_was_escape {
+                                brace_depth = brace_depth.wrapping_add(1);
+                            }
+                            last_was_escape = false;
+                        }
+                        RPAREN => {
+                            if paren_depth == 0 {
+                                done = true;
+                            }
+                            paren_depth = paren_depth.wrapping_sub(1);
+                            last_was_escape = false;
+                        }
+                        RBRACKET => {
+                            if bracket_depth == 0 {
+                                done = true;
+                            }
+                            bracket_depth = bracket_depth.wrapping_sub(1);
+                            last_was_escape = false;
+                        }
+                        RBRACE => {
+                            if brace_depth == 0 {
+                                done = true;
+                            }
+                            brace_depth = brace_depth.wrapping_sub(1);
+                            last_was_escape = false;
+                        }
+                        SQUOTE => {
+                            // Enter or exit a single-quoted string.
+                            in_single_quote = !in_single_quote;
+                            l.advance(false);
+                            advanced_once = true;
+                            last_was_escape = false;
+                            continue;
+                        }
+                        _ => last_was_escape = false,
+                    }
+
+                    if !done {
+                        if v(Tok::Regex) {
+                            let was_space = !in_single_quote && iswspace(l.lookahead);
+                            l.advance(false);
+                            advanced_once = true;
+                            if !was_space || paren_depth > 0 {
+                                l.mark_end();
+                            }
+                        } else if v(Tok::RegexNoSlash) {
+                            if l.lookahead == c('/') {
+                                l.mark_end();
+                                l.result_symbol = Tok::RegexNoSlash as gositter::Symbol;
+                                return advanced_once;
+                            }
+                            if l.lookahead == c('\\') {
+                                l.advance(false);
+                                advanced_once = true;
+                                if !l.eof() && l.lookahead != c('[') && l.lookahead != c('/') {
+                                    l.advance(false);
+                                    l.mark_end();
+                                }
+                            } else {
+                                let was_space = !in_single_quote && iswspace(l.lookahead);
+                                l.advance(false);
+                                advanced_once = true;
+                                if !was_space {
+                                    l.mark_end();
+                                }
+                            }
+                        } else if v(Tok::RegexNoSpace) {
+                            if l.lookahead == c('\\') {
+                                found_non_alnumdollarunderdash = true;
+                                l.advance(false);
+                                if !l.eof() {
+                                    l.advance(false);
+                                }
+                            } else if l.lookahead == c('$') {
+                                l.mark_end();
+                                l.advance(false);
+                                // do not parse a command
+                                // substitution
+                                if l.lookahead == c('(') {
+                                    return false;
+                                }
+                                // end $ always means regex, e.g.
+                                // 99999999$
+                                if iswspace(l.lookahead) {
+                                    l.result_symbol = Tok::RegexNoSpace as gositter::Symbol;
+                                    l.mark_end();
+                                    return true;
+                                }
+                            } else {
+                                let was_space = !in_single_quote && iswspace(l.lookahead);
+                                if was_space && paren_depth == 0 {
+                                    l.mark_end();
+                                    l.result_symbol = Tok::RegexNoSpace as gositter::Symbol;
+                                    return found_non_alnumdollarunderdash;
+                                }
+                                if !iswalnum(l.lookahead)
+                                    && l.lookahead != c('$')
+                                    && l.lookahead != c('-')
+                                    && l.lookahead != c('_')
+                                {
+                                    found_non_alnumdollarunderdash = true;
+                                }
+                                l.advance(false);
+                            }
+                        }
+                    }
+                }
+
+                if v(Tok::RegexNoSlash) {
+                    l.result_symbol = Tok::RegexNoSlash as gositter::Symbol;
+                } else if v(Tok::RegexNoSpace) {
+                    l.result_symbol = Tok::RegexNoSpace as gositter::Symbol;
+                } else {
+                    l.result_symbol = Tok::Regex as gositter::Symbol;
+                }
+                if v(Tok::Regex) && !advanced_once {
+                    return false;
+                }
+                return true;
+            }
+        }
+
+        // extglob_pattern:
+        if target <= 3 && v(Tok::ExtglobPattern) && !v(Tok::ErrorRecovery) {
+            // first skip ws, then check for ? * + @ !
+            while iswspace(l.lookahead) {
+                l.advance(true);
+            }
+
+            if l.lookahead == c('?')
+                || l.lookahead == c('*')
+                || l.lookahead == c('+')
+                || l.lookahead == c('@')
+                || l.lookahead == c('!')
+                || l.lookahead == c('-')
+                || l.lookahead == c(')')
+                || l.lookahead == c('\\')
+                || l.lookahead == c('.')
+                || l.lookahead == c('[')
+                || iswalpha(l.lookahead)
+            {
+                if l.lookahead == c('\\') {
+                    l.advance(false);
+                    if (iswspace(l.lookahead) || l.lookahead == c('"'))
+                        && l.lookahead != c('\r')
+                        && l.lookahead != c('\n')
+                    {
+                        l.advance(false);
+                    } else {
+                        return false;
+                    }
+                }
+
+                if l.lookahead == c(')') && self.last_glob_paren_depth == 0 {
+                    l.mark_end();
+                    l.advance(false);
+
+                    if iswspace(l.lookahead) {
+                        return false;
+                    }
+                }
+
+                l.mark_end();
+                let was_non_alpha = !iswalpha(l.lookahead);
+                if l.lookahead != c('[') {
+                    // no esac
+                    if l.lookahead == c('e') {
+                        l.mark_end();
+                        l.advance(false);
+                        if l.lookahead == c('s') {
+                            l.advance(false);
+                            if l.lookahead == c('a') {
+                                l.advance(false);
+                                if l.lookahead == c('c') {
+                                    l.advance(false);
+                                    if iswspace(l.lookahead) {
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        l.advance(false);
+                    }
+                }
+
+                // -\w is just a word, find something else special
+                if l.lookahead == c('-') {
+                    l.mark_end();
+                    l.advance(false);
+                    while iswalnum(l.lookahead) {
+                        l.advance(false);
+                    }
+
+                    if l.lookahead == c(')') || l.lookahead == c('\\') || l.lookahead == c('.') {
+                        return false;
+                    }
+                    l.mark_end();
+                }
+
+                // case item -) or *)
+                if l.lookahead == c(')') && self.last_glob_paren_depth == 0 {
+                    l.mark_end();
+                    l.advance(false);
+                    if iswspace(l.lookahead) {
+                        l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                        return was_non_alpha;
+                    }
+                }
+
+                if iswspace(l.lookahead) {
+                    l.mark_end();
+                    l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                    self.last_glob_paren_depth = 0;
+                    return true;
+                }
+
+                if l.lookahead == c('$') {
+                    l.mark_end();
+                    l.advance(false);
+                    if l.lookahead == c('{') || l.lookahead == c('(') {
+                        l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                        return true;
+                    }
+                }
+
+                if l.lookahead == c('|') {
+                    l.mark_end();
+                    l.advance(false);
+                    l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                    return true;
+                }
+
+                if !iswalnum(l.lookahead)
+                    && l.lookahead != c('(')
+                    && l.lookahead != c('"')
+                    && l.lookahead != c('[')
+                    && l.lookahead != c('?')
+                    && l.lookahead != c('/')
+                    && l.lookahead != c('\\')
+                    && l.lookahead != c('_')
+                    && l.lookahead != c('*')
+                {
+                    return false;
+                }
+
+                // State. The depths are uint32 and wrap below zero as in C.
+                let mut done = false;
+                let mut saw_non_alphadot = was_non_alpha;
+                let mut paren_depth = u32::from(self.last_glob_paren_depth);
+                let mut bracket_depth = 0u32;
+                let mut brace_depth = 0u32;
+                while !done {
+                    match l.lookahead {
+                        0 => return false,
+                        LPAREN => paren_depth = paren_depth.wrapping_add(1),
+                        LBRACKET => bracket_depth = bracket_depth.wrapping_add(1),
+                        LBRACE => brace_depth = brace_depth.wrapping_add(1),
+                        RPAREN => {
+                            if paren_depth == 0 {
+                                done = true;
+                            }
+                            paren_depth = paren_depth.wrapping_sub(1);
+                        }
+                        RBRACKET => {
+                            if bracket_depth == 0 {
+                                done = true;
+                            }
+                            bracket_depth = bracket_depth.wrapping_sub(1);
+                        }
+                        RBRACE => {
+                            if brace_depth == 0 {
+                                done = true;
+                            }
+                            brace_depth = brace_depth.wrapping_sub(1);
+                        }
+                        _ => {}
+                    }
+
+                    if l.lookahead == c('|') {
+                        l.mark_end();
+                        l.advance(false);
+                        if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 {
+                            l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                            return true;
+                        }
+                    }
+
+                    if !done {
+                        let was_space = iswspace(l.lookahead);
+                        if l.lookahead == c('$') {
+                            l.mark_end();
+                            if !iswalpha(l.lookahead)
+                                && l.lookahead != c('.')
+                                && l.lookahead != c('\\')
+                            {
+                                saw_non_alphadot = true;
+                            }
+                            l.advance(false);
+                            if l.lookahead == c('(') || l.lookahead == c('{') {
+                                l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                                self.last_glob_paren_depth = paren_depth as u8; // uint32 cut to uint8
+                                return saw_non_alphadot;
+                            }
+                        }
+                        if was_space {
+                            l.mark_end();
+                            l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                            self.last_glob_paren_depth = 0;
+                            return saw_non_alphadot;
+                        }
+                        if l.lookahead == c('"') {
+                            l.mark_end();
+                            l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                            self.last_glob_paren_depth = 0;
+                            return saw_non_alphadot;
+                        }
+                        if l.lookahead == c('\\') {
+                            if !iswalpha(l.lookahead)
+                                && l.lookahead != c('.')
+                                && l.lookahead != c('\\')
+                            {
+                                saw_non_alphadot = true;
+                            }
+                            l.advance(false);
+                            if iswspace(l.lookahead) || l.lookahead == c('"') {
+                                l.advance(false);
+                            }
+                        } else {
+                            if !iswalpha(l.lookahead)
+                                && l.lookahead != c('.')
+                                && l.lookahead != c('\\')
+                            {
+                                saw_non_alphadot = true;
+                            }
+                            l.advance(false);
+                        }
+                        if !was_space {
+                            l.mark_end();
+                        }
+                    }
+                }
+
+                l.result_symbol = Tok::ExtglobPattern as gositter::Symbol;
+                self.last_glob_paren_depth = 0;
+                return saw_non_alphadot;
+            }
+            self.last_glob_paren_depth = 0;
+
+            return false;
+        }
+
+        // expansion_word:
+        if target <= 4 && v(Tok::ExpansionWord) {
+            let mut advanced_once = false;
+            let mut advance_once_space = false;
+            loop {
+                if l.lookahead == c('"') {
+                    return false;
+                }
+                if l.lookahead == c('$') {
+                    l.mark_end();
+                    l.advance(false);
+                    if l.lookahead == c('{')
+                        || l.lookahead == c('(')
+                        || l.lookahead == c('\'')
+                        || iswalnum(l.lookahead)
+                    {
+                        l.result_symbol = Tok::ExpansionWord as gositter::Symbol;
+                        return advanced_once;
+                    }
+                    advanced_once = true;
+                }
+
+                if l.lookahead == c('}') {
+                    l.mark_end();
+                    l.result_symbol = Tok::ExpansionWord as gositter::Symbol;
+                    return advanced_once || advance_once_space;
+                }
+
+                if l.lookahead == c('(') && !(advanced_once || advance_once_space) {
+                    l.mark_end();
+                    l.advance(false);
+                    while l.lookahead != c(')') && !l.eof() {
+                        // if we find a $( or ${ assume this is valid and is
+                        // a garbage concatenation of some weird word + an
+                        // expansion
+                        if l.lookahead == c('$') {
+                            l.mark_end();
+                            l.advance(false);
+                            if l.lookahead == c('{')
+                                || l.lookahead == c('(')
+                                || l.lookahead == c('\'')
+                                || iswalnum(l.lookahead)
+                            {
+                                l.result_symbol = Tok::ExpansionWord as gositter::Symbol;
+                                return advanced_once;
+                            }
+                            advanced_once = true;
+                        } else {
+                            advanced_once = advanced_once || !iswspace(l.lookahead);
+                            advance_once_space = advance_once_space || iswspace(l.lookahead);
+                            l.advance(false);
+                        }
+                    }
+                    l.mark_end();
+                    if l.lookahead == c(')') {
+                        advanced_once = true;
+                        l.advance(false);
+                        l.mark_end();
+                        if l.lookahead == c('}') {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                if l.lookahead == c('\'') {
+                    return false;
+                }
+
+                if l.eof() {
+                    return false;
+                }
+                advanced_once = advanced_once || !iswspace(l.lookahead);
+                advance_once_space = advance_once_space || iswspace(l.lookahead);
+                l.advance(false);
+            }
+        }
+
+        // brace_start:
+        if v(Tok::BraceStart) && !v(Tok::ErrorRecovery) {
+            while iswspace(l.lookahead) {
+                l.advance(true);
+            }
+
+            if l.lookahead != c('{') {
+                return false;
+            }
+
+            l.advance(false);
+            l.mark_end();
+
+            while iswdigit(l.lookahead) {
+                l.advance(false);
+            }
+
+            if l.lookahead != c('.') {
+                return false;
+            }
+            l.advance(false);
+
+            if l.lookahead != c('.') {
+                return false;
+            }
+            l.advance(false);
+
+            while iswdigit(l.lookahead) {
+                l.advance(false);
+            }
+
+            if l.lookahead != c('}') {
+                return false;
+            }
+
+            l.result_symbol = Tok::BraceStart as gositter::Symbol;
+            return true;
+        }
+
+        false
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+
+    fn reset(&mut self) -> bool {
+        Scanner::reset(self);
+        true
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]
@@ -275,6 +1514,21 @@ mod tests {
 mod parser_tests {
     use crate::cchar;
 
+    pub(super) const RESET_INPUTS: [&str; 12] = [
+        "",
+        "echo hi\n",
+        "cat <<EOF\nbody\nEOF\n",
+        "cat <<-A <<'B'\n\tone\n\tA\ntwo\nB\n",
+        "cat <<EOF\nbody $(echo <<X\nin\nX\n) more\nEOF\n",
+        "cat <<EOF\nbody without an end",
+        "cat <<A <<B <<C\nx\nA\n",
+        "echo ${x:-$(cat <<E\n",
+        "echo \"$(( 1 + \n",
+        "if [[ $x =~ ^a ]]; then echo 'unclosed\n",
+        "echo ${a[@]#*} <<<\"s\"\nfoo=bar\n",
+        "cat <<EOF >out; echo $(\n",
+    ];
+
     /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
     fn language() -> &'static gositter::Language {
         unimplemented!("gositter-rs-vjz.10: generated language()")
@@ -304,29 +1558,34 @@ mod parser_tests {
             );
         }
     }
+
+    // B parsed after A on one parser has the tree of B on a fresh parser.
+    // reset_test.go TestReusedScannerSameTree
+    #[test]
+    #[ignore = "gositter-rs-vjz.12"]
+    fn reused_scanner_same_tree() {
+        let mut reused = gositter::Parser::new();
+        reused.set_language(language()).unwrap();
+        for a in RESET_INPUTS {
+            for b in RESET_INPUTS {
+                reused.parse(a.as_bytes()).unwrap();
+                let got = reused.parse(b.as_bytes()).unwrap().root_node().to_sexp();
+                let mut fresh = gositter::Parser::new();
+                fresh.set_language(language()).unwrap();
+                let want = fresh.parse(b.as_bytes()).unwrap().root_node().to_sexp();
+                assert_eq!(got, want, "{b:?} after {a:?}");
+            }
+        }
+    }
 }
 
-// gositter-rs-vjz.12: needs impl ExternalScanner for Scanner (Task 12)
+// gositter-rs-vjz.12: needs a way to read the parser's kept scanner (ask the runtime)
 #[cfg(any())]
 mod reset_tests {
+    use super::parser_tests::RESET_INPUTS;
     use super::*;
     use std::cell::RefCell;
     use std::rc::Rc;
-
-    const RESET_INPUTS: [&str; 12] = [
-        "",
-        "echo hi\n",
-        "cat <<EOF\nbody\nEOF\n",
-        "cat <<-A <<'B'\n\tone\n\tA\ntwo\nB\n",
-        "cat <<EOF\nbody $(echo <<X\nin\nX\n) more\nEOF\n",
-        "cat <<EOF\nbody without an end",
-        "cat <<A <<B <<C\nx\nA\n",
-        "echo ${x:-$(cat <<E\n",
-        "echo \"$(( 1 + \n",
-        "if [[ $x =~ ^a ]]; then echo 'unclosed\n",
-        "echo ${a[@]#*} <<<\"s\"\nfoo=bar\n",
-        "cat <<EOF >out; echo $(\n",
-    ];
 
     thread_local! {
         // The scanner the parser made, as language.ExternalScanner.New captures it in Go.
@@ -402,25 +1661,6 @@ mod reset_tests {
             dirty, 0,
             "no input left the scanner dirty, the test checks nothing"
         );
-    }
-
-    // B parsed after A on one parser has the tree of B on a fresh parser.
-    // reset_test.go TestReusedScannerSameTree
-    #[test]
-    #[ignore = "gositter-rs-vjz.12"]
-    fn reused_scanner_same_tree() {
-        let mut reused = gositter::Parser::new();
-        reused.set_language(super::super::language()).unwrap();
-        for a in RESET_INPUTS {
-            for b in RESET_INPUTS {
-                reused.parse(a.as_bytes());
-                let got = reused.parse(b.as_bytes()).root_node().to_string();
-                let mut fresh = gositter::Parser::new();
-                fresh.set_language(super::super::language()).unwrap();
-                let want = fresh.parse(b.as_bytes()).root_node().to_string();
-                assert_eq!(got, want, "{b:?} after {a:?}");
-            }
-        }
     }
 
     // A small parse after a huge one must not keep the huge buffers.

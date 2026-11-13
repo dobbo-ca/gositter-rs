@@ -74,15 +74,19 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
-#[cfg(any())]
+#[cfg(test)]
 mod parser_tests {
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
+
     // scanner_test.go TestLanguageWiresScanner
     #[test]
     #[ignore = "gositter-rs-vjz.12"]
     fn language_wires_scanner() {
         assert!(
-            super::super::language().external_scanner_new.is_some(),
+            language().tables.external_scanner.create.is_some(),
             "ExternalScanner.New is nil: rerun grammars/gen.sh julia"
         );
     }
@@ -92,10 +96,10 @@ mod parser_tests {
     #[ignore = "gositter-rs-vjz.12"]
     fn parse_scanner_tokens() {
         let mut p = gositter::Parser::new();
-        let _ = p.set_language(super::super::language());
+        p.set_language(language()).unwrap();
         let src = "#= a #= b =# c =#\nf(x) = \"a$(x)b\" * raw\"\\\"q\" * `ls $x` * \"\"\"t \"u\" \"\"\"\n";
-        let tree = p.parse(src.as_bytes());
-        let got = tree.root_node().to_string();
+        let tree = p.parse(src.as_bytes()).unwrap();
+        let got = tree.root_node().to_sexp();
         assert!(
             !got.is_empty() && !tree.root_node().has_error(),
             "tree = {got}"

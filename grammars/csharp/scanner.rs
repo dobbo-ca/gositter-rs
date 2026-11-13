@@ -221,15 +221,19 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
-#[cfg(any())]
+#[cfg(test)]
 mod parser_tests {
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
+
     // Parses through the scanner and checks the state left behind.
     #[test]
     #[ignore = "gositter-rs-vjz.12"]
     fn scan_state() {
         let mut p = gositter::Parser::new();
-        p.set_language(super::super::language()).unwrap();
+        p.set_language(language()).unwrap();
         for (src, want) in [
             (r#"var s = $"a{b}c";"#, "interpolated_string_expression"),
             (r#"var s = $@"a""{b}c";"#, "interpolated_string_expression"),
@@ -239,8 +243,8 @@ mod parser_tests {
             ),
             ("var s = \"\"\"\"a\"\"\"b\"\"\"\";", "raw_string_literal"),
         ] {
-            let tree = p.parse(src.as_bytes());
-            let sexp = tree.root_node().to_string();
+            let tree = p.parse(src.as_bytes()).unwrap();
+            let sexp = tree.root_node().to_sexp();
             assert!(
                 !tree.root_node().has_error() && sexp.contains(want),
                 "{src}: {sexp}"

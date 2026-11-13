@@ -271,11 +271,45 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
-#[cfg(any())]
+#[cfg(test)]
 mod parser_tests {
-    use super::*;
     use crate::cchar;
+
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
+
+    // The delimiter is compared as C chars against lookahead, so the two non-ASCII cases swap
+    // where char is unsigned.
+    // scanner_test.go TestHeredocEndChar
+    #[test]
+    #[ignore = "gositter-rs-vjz.12"]
+    fn heredoc_end_char() {
+        let mut p = gositter::Parser::new();
+        p.set_language(language()).unwrap();
+        for (src, want_err) in [
+            (&b"cat <<E\nx\nE\n"[..], false),
+            // signed: 0xFF is -1, as is an invalid byte
+            (&b"cat <<\xff\nx\n\xff\n"[..], cchar::UNSIGNED),
+            // signed: U+00E9 is cut to 0xE9 = -23, never matches
+            (&b"cat <<\xc3\xa9\nx\n\xc3\xa9\n"[..], !cchar::UNSIGNED),
+        ] {
+            let tree = p.parse(src).unwrap();
+            assert_eq!(
+                tree.root_node().has_error(),
+                want_err,
+                "{src:?}: has_error\n{}",
+                tree.root_node().to_sexp()
+            );
+        }
+    }
+}
+
+// gositter-rs-vjz.12: needs impl ExternalScanner for Scanner (Task 12)
+#[cfg(any())]
+mod reset_tests {
+    use super::*;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -339,31 +373,6 @@ mod parser_tests {
         let mut buf = [0u8; SERIALIZATION_BUFFER_SIZE];
         let n = s.serialize(&mut buf);
         buf[..n].to_vec()
-    }
-
-    // The delimiter is compared as C chars against lookahead, so the two non-ASCII cases swap
-    // where char is unsigned.
-    // scanner_test.go TestHeredocEndChar
-    #[test]
-    #[ignore = "gositter-rs-vjz.12"]
-    fn heredoc_end_char() {
-        let mut p = gositter::Parser::new();
-        p.set_language(super::super::language()).unwrap();
-        for (src, want_err) in [
-            (&b"cat <<E\nx\nE\n"[..], false),
-            // signed: 0xFF is -1, as is an invalid byte
-            (&b"cat <<\xff\nx\n\xff\n"[..], cchar::UNSIGNED),
-            // signed: U+00E9 is cut to 0xE9 = -23, never matches
-            (&b"cat <<\xc3\xa9\nx\n\xc3\xa9\n"[..], !cchar::UNSIGNED),
-        ] {
-            let tree = p.parse(src);
-            assert_eq!(
-                tree.root_node().has_error(),
-                want_err,
-                "{src:?}: has_error\n{}",
-                tree.root_node().to_string()
-            );
-        }
     }
 
     // reset_test.go TestResetIsNew

@@ -239,9 +239,9 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
+// gositter-rs-vjz.12: needs impl ExternalScanner for Scanner (Task 12)
 #[cfg(any())]
-mod parser_tests {
+mod reset_tests {
     use super::tests::serialize;
     use super::*;
     use std::{cell::RefCell, rc::Rc};

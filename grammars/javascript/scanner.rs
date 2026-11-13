@@ -94,9 +94,32 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
-#[cfg(any())]
+#[cfg(test)]
 mod parser_tests {
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
+
+    // scanner_test.go TestScanSmoke
+    #[test]
+    #[ignore = "gositter-rs-vjz.12"]
+    fn scan_smoke() {
+        let mut p = gositter::Parser::new();
+        p.set_language(language()).unwrap();
+        let src = "let a = 1\nlet b = `x${a}y`\nconst c = a ? b : /re/g\n";
+        let tree = p.parse(src.as_bytes()).unwrap();
+        assert!(
+            !tree.root_node().has_error(),
+            "unexpected error: {}",
+            tree.root_node().to_sexp()
+        );
+    }
+}
+
+// gositter-rs-vjz.10: needs the generated consts
+#[cfg(any())]
+mod const_tests {
     use super::*;
 
     // The token order must be the grammar's externals order.
@@ -120,20 +143,5 @@ mod parser_tests {
                 "symbol_map[{i}]"
             );
         }
-    }
-
-    // scanner_test.go TestScanSmoke
-    #[test]
-    #[ignore = "gositter-rs-vjz.12"]
-    fn scan_smoke() {
-        let mut p = gositter::Parser::new();
-        p.set_language(super::super::language()).unwrap();
-        let src = "let a = 1\nlet b = `x${a}y`\nconst c = a ? b : /re/g\n";
-        let tree = p.parse(src.as_bytes());
-        assert!(
-            !tree.root_node().has_error(),
-            "unexpected error: {}",
-            tree.root_node().to_string()
-        );
     }
 }

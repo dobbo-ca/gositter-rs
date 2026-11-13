@@ -11,6 +11,7 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
+gositter = { path = ".." }
 
 [lints.rust]
 unsafe_code = "forbid"

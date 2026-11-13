@@ -91,23 +91,27 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
-#[cfg(any())]
+#[cfg(test)]
 mod parser_tests {
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
+
     // Parses through the scanner: template chars, ASI, ternary, html comment.
     // scanner_test.go TestParse
     #[test]
     #[ignore = "gositter-rs-vjz.12"]
     fn parse() {
         let mut p = gositter::Parser::new();
-        p.set_language(super::super::language()).unwrap();
+        p.set_language(language()).unwrap();
         assert!(
-            super::super::language().external_scanner_new.is_some(),
+            language().tables.external_scanner.create.is_some(),
             "ExternalScanner.New is nil: rerun grammars/gen.sh"
         );
         let src = "let a = `x${b}y`\nlet c = a ? 1 : 2\n<!-- c\nfunction f(x?: number) {}\n";
-        let tree = p.parse(src.as_bytes());
+        let tree = p.parse(src.as_bytes()).unwrap();
         let root = tree.root_node();
-        assert!(!root.has_error(), "tree has errors: {}", root.to_string());
+        assert!(!root.has_error(), "tree has errors: {}", root.to_sexp());
     }
 }

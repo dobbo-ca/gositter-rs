@@ -422,20 +422,18 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // Parses through the scanner: template chars, ASI, ternary, html comment.
     // scanner_test.go TestParse
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn parse() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         assert!(
-            language().tables.external_scanner.create.is_some(),
+            super::super::language()
+                .tables
+                .external_scanner
+                .create
+                .is_some(),
             "ExternalScanner.New is nil: rerun grammars/gen.sh"
         );
         let src = "let a = `x${b}y`\nlet c = a ? 1 : 2\n<!-- c\nfunction f(x?: number) {}\n";

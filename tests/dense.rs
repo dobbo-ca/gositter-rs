@@ -35,7 +35,17 @@ fn dense_lookup_json() {
 #[test]
 fn dense_lookup_wired() {
     let mut errs = Vec::new();
-    for dir in ["c", "go", "java", "verilog", "zig"] {
+    for dir in [
+        "c",
+        "go",
+        "java",
+        "javascript",
+        "python",
+        "tsx",
+        "typescript",
+        "verilog",
+        "zig",
+    ] {
         dense_lookup_of(&mut errs, dir);
     }
     assert!(errs.is_empty(), "{}", errs.join("\n"));

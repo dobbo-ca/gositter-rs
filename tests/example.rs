@@ -20,7 +20,6 @@ fn walk(n: Node<'_>, depth: usize, out: &mut String) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn example_python() {
     let src = b"def add(a, b):\n    return a + b\n";
     let mut p = Parser::new();

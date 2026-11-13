@@ -104,6 +104,15 @@ fn breakpoints(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>, out: &mut Vec<
 
 /// The lookaheads in -1..=0x10FFFF that satisfy `c` when not at end of input, as sorted ranges.
 pub fn ranges(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>) -> Vec<(i32, i32)> {
+    ranges_with(c, sets, false)
+}
+
+/// `ranges` for a given value of `eof`.
+pub fn ranges_with(
+    c: &Cond,
+    sets: &HashMap<String, Vec<(i32, i32)>>,
+    eof: bool,
+) -> Vec<(i32, i32)> {
     const MAX: i64 = 0x10FFFF;
     let mut starts = vec![-1];
     breakpoints(c, sets, &mut starts);
@@ -112,7 +121,7 @@ pub fn ranges(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>) -> Vec<(i32, i3
     starts.dedup();
     let mut out: Vec<(i32, i32)> = Vec::new();
     for (i, &s) in starts.iter().enumerate() {
-        if !eval(c, sets, s, false) {
+        if !eval(c, sets, s, eof) {
             continue;
         }
         let e = starts.get(i + 1).map_or(MAX, |n| n - 1) as i32;

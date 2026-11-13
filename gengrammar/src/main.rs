@@ -1,6 +1,7 @@
-//! gengrammar --lock <file> --src <dir> --out <dir> [--update] [-j N] [name ...]
+//! gengrammar --lock <file> --src <dir> --out <dir> [--update] [-j N] [--lexer code|table] [name ...]
 //! gengrammar --lock <file> --src <dir> --oracle <dir> [name ...]
 //!
+//! `--lexer` picks the form of `<g>/lex.rs` (and `lex.bin` for `table`), written for `LEX_GRAMMARS`.
 //! The second form compares the tables with the dump of gositter's own Go tables (`oracle.rs`).
 //!
 //! `--src` holds the grammar modules in the Go module cache layout
@@ -13,10 +14,14 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use gengrammar::blob::{check_language, write_blob};
+use gengrammar::lexgen::{LexForm, emit_lex};
 use gengrammar::lock::{LockEntry, check_sum, parse_lock};
 use gengrammar::oracle::check_grammar;
 use gengrammar::parse::parse_grammar;
 use gengrammar::rust::{header, mod_rs};
+
+/// The grammars whose lexer is generated until the form is decided for all 21.
+const LEX_GRAMMARS: [&str; 4] = ["bash", "cpp", "json", "verilog"];
 
 struct Args {
     lock: String,
@@ -24,6 +29,7 @@ struct Args {
     out: PathBuf,
     oracle: Option<PathBuf>,
     update: bool,
+    lexer: LexForm,
     jobs: usize,
     names: Vec<String>,
 }
@@ -40,6 +46,7 @@ fn args() -> Args {
         PathBuf::from("grammars"),
     );
     let (mut update, mut jobs, mut names, mut oracle) = (false, 4, Vec::new(), None);
+    let mut lexer = LexForm::Code;
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         let mut val = |name: &str| {
@@ -52,6 +59,13 @@ fn args() -> Args {
             "--out" => out = PathBuf::from(val("--out")),
             "--oracle" => oracle = Some(PathBuf::from(val("--oracle"))),
             "--update" => update = true,
+            "--lexer" => {
+                lexer = match val("--lexer").as_str() {
+                    "code" => LexForm::Code,
+                    "table" => LexForm::Table,
+                    _ => die("--lexer wants code or table"),
+                }
+            }
             "-j" => {
                 jobs = val("-j")
                     .parse()
@@ -68,13 +82,20 @@ fn args() -> Args {
         out,
         oracle,
         update,
+        lexer,
         jobs: jobs.max(1),
         names,
     }
 }
 
 /// Generates one grammar and returns the sha256 of its parser.c.
-fn generate(l: &LockEntry, src: &Path, out: &Path, update: bool) -> Result<String, String> {
+fn generate(
+    l: &LockEntry,
+    src: &Path,
+    out: &Path,
+    update: bool,
+    lexer: LexForm,
+) -> Result<String, String> {
     let path = l.parser_c(src);
     let text = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let sum = check_sum(&text, &l.sum, update)?;
@@ -83,10 +104,21 @@ fn generate(l: &LockEntry, src: &Path, out: &Path, update: bool) -> Result<Strin
     let info = check_language(&mut g).map_err(|e| e.0)?;
     let blob = write_blob(&g, &info);
     let rs = mod_rs(&header(l, &sum), &g, &info, &blob);
-    // Both outputs exist in memory before the first write, so a failure leaves the old files.
+    let mut files = vec![("tables.bin", blob.bytes), ("mod.rs", rs.into_bytes())];
+    if LEX_GRAMMARS.contains(&l.pkg.as_str()) {
+        let (body, bin) = emit_lex(&g, lexer).map_err(|e| e.0)?;
+        files.push((
+            "lex.rs",
+            format!("{}\n{body}", header(l, &sum)).into_bytes(),
+        ));
+        if lexer == LexForm::Table {
+            files.push(("lex.bin", bin));
+        }
+    }
+    // All outputs exist in memory before the first write, so a failure leaves the old files.
     let dir = out.join(&l.pkg);
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    for (name, bytes) in [("tables.bin", &blob.bytes[..]), ("mod.rs", rs.as_bytes())] {
+    for (name, bytes) in &files {
         let p = dir.join(name);
         std::fs::write(&p, bytes).map_err(|e| format!("{}: {e}", p.display()))?;
     }
@@ -127,7 +159,7 @@ fn main() {
         for _ in 0..a.jobs.min(todo.len()) {
             s.spawn(|| {
                 while let Some((i, l)) = todo.get(next.fetch_add(1, Ordering::Relaxed)) {
-                    let r = generate(l, &a.src, &a.out, a.update);
+                    let r = generate(l, &a.src, &a.out, a.update, a.lexer);
                     done.lock().unwrap().push((*i, l, r));
                 }
             });

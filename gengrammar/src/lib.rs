@@ -5,6 +5,7 @@
 pub mod blob;
 pub mod cond;
 pub mod ctok;
+pub mod lexgen;
 pub mod lock;
 pub mod oracle;
 pub mod parse;

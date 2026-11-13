@@ -18,8 +18,8 @@ fn names(g: &Grammar, table: &str) -> String {
     list.join(", ")
 }
 
-/// The text of `mod.rs`: constants, offsets and names. `language()` comes with the runtime.
-pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob, _has_lex: bool) -> String {
+/// The text of `mod.rs`: constants, offsets, names and, with `has_lex` (a `lex.rs` is written), `language()`.
+pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob, has_lex: bool) -> String {
     let mut s = format!("{hdr}\n#![allow(non_upper_case_globals)]\n");
     for en in &g.enums {
         s.push_str(&format!("\n// enum {}\n", en.name));
@@ -57,6 +57,136 @@ pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob, _has_lex: bo
         names(g, &info.symbol_names),
         names(g, &info.field_names)
     ));
-    s.push_str("\n#[allow(dead_code)] // read by language()\nstatic TABLES: &[u8] = include_bytes!(\"tables.bin\");\n");
+    if has_lex {
+        s.push_str("\nconst TABLES: &[u8] = include_bytes!(\"tables.bin\");\n");
+        s.push_str(&language(g, info));
+    } else {
+        s.push_str("\n#[allow(dead_code)] // read by language()\nstatic TABLES: &[u8] = include_bytes!(\"tables.bin\");\n");
+    }
+    s
+}
+
+/// `(gositter Language field, rust field, view type)` of every table of `LanguageTables`.
+const TABLE_FIELDS: [(&str, &str, &str); 16] = [
+    ("ParseTable", "parse_table", "U16s"),
+    ("SmallParseTable", "small_parse_table", "U16s"),
+    ("SmallParseTableMap", "small_parse_table_map", "U32s"),
+    ("ParseActions", "parse_actions", "ParseActions"),
+    ("FieldMapSlices", "field_map_slices", "MapSlices"),
+    ("FieldMapEntries", "field_map_entries", "FieldMapEntries"),
+    ("SymbolMetadata", "symbol_metadata", "SymbolMetadatas"),
+    ("PublicSymbolMap", "public_symbol_map", "U16s"),
+    ("AliasMap", "alias_map", "U16s"),
+    ("AliasSequences", "alias_sequences", "U16s"),
+    ("LexModes", "lex_modes", "LexModes"),
+    ("PrimaryStateIDs", "primary_state_ids", "U16s"),
+    ("ReservedWords", "reserved_words", "U16s"),
+    ("SupertypeSymbols", "supertype_symbols", "U16s"),
+    ("SupertypeMapSlices", "supertype_map_slices", "MapSlices"),
+    ("SupertypeMapEntries", "supertype_map_entries", "U16s"),
+];
+
+/// `View::at(TABLES, T.0, T.1)` for the table behind `field`, or `View::EMPTY` if the grammar lacks it.
+fn view(info: &LangInfo, field: &str, ty: &str) -> String {
+    match info.fields.iter().find(|f| f.0 == field) {
+        Some((_, table)) => {
+            let c = table.to_uppercase();
+            format!("gositter::{ty}::at(TABLES, {c}.0, {c}.1)")
+        }
+        None => format!("gositter::{ty}::EMPTY"),
+    }
+}
+
+/// The lex wrappers, `LANGUAGE` and `language()`.
+fn language(g: &Grammar, info: &LangInfo) -> String {
+    let keywords = g.lex_fns.len() == 2;
+    let mut s = String::from("\n#[rustfmt::skip]\nmod lex;\n");
+    let scanner = info.fields.iter().any(|f| f.0 == "States");
+    if scanner {
+        s.push_str("#[rustfmt::skip]\nmod scanner;\n");
+    }
+    s.push_str("\nfn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {\n    lex::lex(l, state)\n}\n");
+    if keywords {
+        s.push_str("\nfn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {\n    lex::lex_keywords(l, state)\n}\n");
+    }
+    s.push_str("\nstatic LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {\n");
+    let count = |s: &mut String, f: &str| s.push_str(&format!("    {f}: COUNTS.{f},\n"));
+    for f in [
+        "abi_version",
+        "symbol_count",
+        "alias_count",
+        "token_count",
+        "external_token_count",
+        "state_count",
+        "large_state_count",
+        "production_id_count",
+        "field_count",
+        "max_alias_sequence_length",
+    ] {
+        count(&mut s, f);
+    }
+    let table = |s: &mut String, go: &str| {
+        let (_, f, ty) = TABLE_FIELDS
+            .iter()
+            .find(|t| t.0 == go)
+            .expect("table field");
+        s.push_str(&format!("    {f}: {},\n", view(info, go, ty)));
+    };
+    for go in [
+        "ParseTable",
+        "SmallParseTable",
+        "SmallParseTableMap",
+        "ParseActions",
+    ] {
+        table(&mut s, go);
+    }
+    s.push_str("    symbol_names: SYMBOL_NAMES,\n    field_names: FIELD_NAMES,\n");
+    for go in [
+        "FieldMapSlices",
+        "FieldMapEntries",
+        "SymbolMetadata",
+        "PublicSymbolMap",
+        "AliasMap",
+        "AliasSequences",
+        "LexModes",
+    ] {
+        table(&mut s, go);
+    }
+    s.push_str("    lex_fn: lex_main,\n");
+    s.push_str(if keywords {
+        "    keyword_lex_fn: Some(lex_keywords_main),\n"
+    } else {
+        "    keyword_lex_fn: None,\n"
+    });
+    count(&mut s, "keyword_capture_token");
+    s.push_str("    external_scanner: gositter::ExternalScannerInfo {\n");
+    s.push_str(&format!(
+        "        states: {},\n        symbol_map: {},\n",
+        view(info, "States", "Bools"),
+        view(info, "SymbolMap", "U16s")
+    ));
+    s.push_str(if scanner {
+        "        create: Some(scanner::new),\n"
+    } else {
+        "        create: None,\n"
+    });
+    s.push_str("    },\n");
+    table(&mut s, "PrimaryStateIDs");
+    s.push_str(&format!("    name: {:?},\n", g.name));
+    table(&mut s, "ReservedWords");
+    count(&mut s, "max_reserved_word_set_size");
+    count(&mut s, "supertype_count");
+    for go in [
+        "SupertypeSymbols",
+        "SupertypeMapSlices",
+        "SupertypeMapEntries",
+    ] {
+        table(&mut s, go);
+    }
+    let [a, b, c] = info.metadata;
+    s.push_str(&format!(
+        "    metadata: gositter::LanguageMetadata {{ major_version: {a}, minor_version: {b}, patch_version: {c} }},\n"
+    ));
+    s.push_str("});\n\npub fn language() -> &'static gositter::Language {\n    &LANGUAGE\n}\n");
     s
 }

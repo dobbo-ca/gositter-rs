@@ -8,6 +8,9 @@ extern crate self as gositter_grammars;
 pub mod cchar;
 pub mod lex;
 
+#[rustfmt::skip]
+pub mod json;
+
 /// `SerializationBufferSize` of gositter `api.go:25`. Moves to the runtime crate when its scanner trait lands.
 pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;
 

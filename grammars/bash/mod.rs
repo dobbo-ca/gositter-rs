@@ -389,5 +389,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (1154408, 3799);
 pub static SYMBOL_NAMES: &[&str] = &["end", "word", "for", "select", "in", "((", "))", ";", ",", "=", "++", "--", "+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", "&=", "^=", "|=", "||", "-o", "&&", "-a", "|", "^", "&", "==", "!=", "<", ">", "<=", ">=", "<<", ">>", "+", "-", "*", "/", "%", "**", "(", ")", "word", "while", "until", "do", "done", "if", "then", "fi", "elif", "else", "case", "esac", ";;", ";&", ";;&", "function", "{", "}", "|&", "!", "[", "]", "[[", "]]", "declare", "typeset", "export", "readonly", "local", "unset", "unsetenv", "=~", "&>", "&>>", "<&", ">&", ">|", "<&-", ">&-", "<<-", "heredoc_redirect_token1", "<<<", "?", ":", "++", "--", "-", "+", "~", "$((", "$[", "number", "..", "}", "``", "$", "_special_character", "\"", "string_content", "raw_string", "ansi_c_string", "number_token1", "number_token2", "#", "${", "}", "!", "@", "*", "#", "=", ":=", "-", ":-", "+", ":+", "?", ":?", "%%", "regex", "//", "/#", "/%", ",,", "^^", "U", "u", "L", "Q", "E", "P", "A", "K", "a", "k", "$(", "`", "$`", "<(", ">(", "comment", "word", "variable_name", "variable_name", "special_variable_name", "special_variable_name", "heredoc_start", "heredoc_body", "_heredoc_body_beginning", "heredoc_content", "heredoc_end", "file_descriptor", "_empty_value", "_concat", "variable_name", "test_operator", "regex", "regex", "regex", "word", "extglob_pattern", "$", "{", "##", "#", "!", "=", "__error_recovery", "program", "_statements", "_terminated_statement", "_statement_not_pipeline", "redirected_statement", "for_statement", "c_style_for_statement", "_for_body", "_c_expression", "_c_expression_not_assignment", "variable_assignment", "unary_expression", "binary_expression", "postfix_expression", "parenthesized_expression", "while_statement", "do_group", "if_statement", "elif_clause", "else_clause", "case_statement", "case_item", "case_item", "function_definition", "compound_statement", "subshell", "pipeline", "list", "negated_command", "test_command", "binary_expression", "declaration_command", "unset_command", "command", "command_name", "variable_assignment", "variable_assignments", "subscript", "file_redirect", "heredoc_redirect", "pipeline", "_heredoc_expression", "_heredoc_command", "_heredoc_body", "heredoc_body", "_simple_heredoc_body", "herestring_redirect", "_expression", "binary_expression", "ternary_expression", "unary_expression", "postfix_expression", "parenthesized_expression", "arithmetic_expansion", "brace_expression", "_arithmetic_expression", "_arithmetic_literal", "binary_expression", "ternary_expression", "unary_expression", "postfix_expression", "parenthesized_expression", "concatenation", "string", "translated_string", "array", "number", "simple_expansion", "expansion", "_expansion_body", "_expansion_expression", "_expansion_regex", "_expansion_regex_replacement", "_expansion_regex_removal", "_expansion_max_length", "_expansion_max_length_expression", "binary_expression", "_expansion_operator", "concatenation", "command_substitution", "process_substitution", "_extglob_blob", "_c_terminator", "_statements_repeat1", "redirected_statement_repeat1", "redirected_statement_repeat2", "for_statement_repeat1", "_for_body_repeat1", "if_statement_repeat1", "case_statement_repeat1", "case_item_repeat1", "compound_statement_repeat1", "pipeline_repeat1", "declaration_command_repeat1", "unset_command_repeat1", "command_repeat1", "command_repeat2", "variable_assignments_repeat1", "heredoc_body_repeat1", "_literal_repeat1", "arithmetic_expansion_repeat1", "concatenation_repeat1", "string_repeat1", "_expansion_body_repeat1", "_expansion_regex_repeat1", "_concatenation_in_expansion_repeat1"];
 pub static FIELD_NAMES: &[&str] = &["", "alternative", "argument", "body", "condition", "consequence", "descriptor", "destination", "fallthrough", "index", "initializer", "left", "name", "operator", "redirect", "right", "termination", "update", "value", "variable"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "bash",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 25, patch_version: 1 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

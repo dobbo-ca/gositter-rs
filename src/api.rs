@@ -398,41 +398,12 @@ pub struct Lexer<'s> {
     pub lookahead: i32,
     /// Set by lex functions (a symbol) and scanners (an external token index).
     pub result_symbol: Symbol,
-    _src: &'s [u8],
+    /// The whole input (TSInput with ts_string_input_read).
+    pub(crate) src: &'s [u8],
+    pub(crate) state: crate::lexer::LexerState,
 }
 
-impl Lexer<'_> {
-    /// lexer->advance(lexer, skip)
-    pub fn advance(&mut self, _skip: bool) {
-        todo!("gositter-rs-2f0.6")
-    }
-
-    /// `advance(skip)` repeated while `lookahead` is an ASCII character in `set`
-    /// (gositter CONTRACT.md section 6, self-loops).
-    pub fn advance_run(&mut self, _set: &'static [bool; 256], _skip: bool) {
-        todo!("gositter-rs-2f0.6")
-    }
-
-    /// lexer->mark_end(lexer)
-    pub fn mark_end(&mut self) {
-        todo!("gositter-rs-2f0.6")
-    }
-
-    /// lexer->get_column(lexer): code points since the start of the line.
-    pub fn get_column(&mut self) -> u32 {
-        todo!("gositter-rs-2f0.6")
-    }
-
-    /// lexer->is_at_included_range_start(lexer)
-    pub fn is_at_included_range_start(&self) -> bool {
-        todo!("gositter-rs-2f0.6")
-    }
-
-    /// lexer->eof(lexer)
-    pub fn eof(&self) -> bool {
-        todo!("gositter-rs-2f0.6")
-    }
-}
+// The Lexer methods are in lexer.rs (lexer.c).
 
 /// set_contains: the C binary search, line for line.
 pub fn set_contains(ranges: &[CharacterRange], lookahead: i32) -> bool {

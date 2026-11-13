@@ -3,6 +3,11 @@
 //! `docs/superpowers/plans/2026-11-13-runtime.md`.
 
 mod api;
+// The parser (plan Task 11) is the first user of these two; until then only their tests are.
+#[allow(dead_code)]
+mod length;
+#[allow(dead_code)]
+mod lexer;
 mod node;
 mod parser;
 mod tree;

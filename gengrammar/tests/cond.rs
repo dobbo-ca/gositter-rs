@@ -115,3 +115,11 @@ fn eval_points_and_eof() {
     assert!(!eval(&Cond::Eof, &sets, 5, false));
     assert!(!eval(&Cond::Not(Box::new(Cond::Eof)), &sets, 5, true));
 }
+
+/// `lookahead < i64::MAX` must not overflow in `v + 1`; Go only compares (run.go:125).
+#[test]
+fn ranges_literal_i64_max() {
+    let c = cmp(CmpOp::Lt, Operand::Lookahead, Operand::Lit(i64::MAX));
+    let r = ranges(&c, &HashMap::new());
+    assert_eq!((r[0].0, r[r.len() - 1].1), (-1, 0x10FFFF));
+}

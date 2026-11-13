@@ -429,3 +429,43 @@ fn scanner_prototypes_are_skipped() {
         parse("void *a(void);\nbool b(void *p, const char *q);\nunsigned c(void);\nenum e { z };");
     assert_eq!(g.consts["z"], 0);
 }
+
+/// Go's `int` arithmetic wraps (parse.go:26-31, 301, 340-355, 455-458), so Rust must not panic.
+#[test]
+fn table_arithmetic_wraps_like_go() {
+    let t = |src: &str| parse(src).tables["x"].vals.clone();
+    // width: 1 * 2^32 * 2^32 wraps to 0, so make(0) and `{}` returns.
+    assert!(t("static uint16_t x[1][0x100000000][0x100000000] = {};").is_empty());
+    // dims[0] * width = 2^62 * 4 wraps to 0.
+    assert!(t("static uint16_t x[0x4000000000000000][4] = {};").is_empty());
+    // stride = 3 * 0x5555555555555556 = 2^64 + 2 wraps to 2, so vals = make(1*2).
+    assert_eq!(
+        t("static uint16_t x[1][3][0x5555555555555556] = { {} };"),
+        [0, 0]
+    );
+    // (idx+1)*4 = 4 and idx*4 = 0 after wrapping: vals grows to 4 and is written at 0..4.
+    assert_eq!(
+        t("static uint16_t x[][4] = { [0x4000000000000000] = {1,2,3,4} };"),
+        [1, 2, 3, 4]
+    );
+    // (idx+1)*2 = 2^64 wraps to 0 (no append); init(off=-2) returns on `{}`.
+    assert!(t("static uint16_t x[][2] = { [0x7FFFFFFFFFFFFFFF] = {} };").is_empty());
+    // idx++ wraps to MinInt64 and the `idx < 0` check fires.
+    let e =
+        parse_grammar("static uint16_t x[][2] = { [0x7FFFFFFFFFFFFFFF] = {}, {} };").unwrap_err();
+    assert!(
+        e.0.ends_with("x: index -9223372036854775808 out of range"),
+        "{}",
+        e.0
+    );
+}
+
+/// idx*5 = 2^64+4 wraps to 4; (idx+1)*5 = 9, so actions grows to 9 and 4..9 is written.
+#[test]
+fn parse_action_index_wraps_like_go() {
+    let g = parse(
+        "enum e { sym_a = 1 };\nstatic const TSParseActionEntry ts_parse_actions[] = { [0x3333333333333334] = SHIFT(1) };",
+    );
+    assert_eq!(g.actions.len(), 9);
+    assert_eq!(g.actions[..4], [0, 0, 0, 0]);
+}

@@ -1,0 +1,29 @@
+# cargo-deny: no C in the build graph (see README, "No C").
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+
+[licenses]
+version = 2
+allow = ["MIT", "Apache-2.0", "ISC", "BSD-3-Clause", "Unicode-3.0", "MPL-2.0"]
+
+[bans]
+multiple-versions = "allow"
+deny = [
+  { name = "cc" },
+  { name = "cmake" },
+  { name = "bindgen" },
+  { name = "ring" },
+  { name = "aws-lc-sys" },
+  { name = "aws-lc-rs" },
+  { name = "openssl-sys" },
+  { name = "security-framework-sys" },
+  { name = "core-foundation-sys" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/dobbo-ca/gositter-rs"]

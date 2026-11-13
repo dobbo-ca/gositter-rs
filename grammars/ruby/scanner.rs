@@ -74,30 +74,94 @@ pub struct Scanner {
 impl Scanner {
     /// `tree_sitter_ruby_external_scanner_create`.
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     /// `reset`.
-    #[allow(dead_code)] // tests-first stub; the port calls it
     fn reset(&mut self) {
-        let _ = self;
-        todo!()
+        self.literal_stack.clear();
+        self.open_heredocs.clear();
     }
 
     /// `array_delete(&heredoc->word); array_erase(&scanner->open_heredocs, 0)`.
     pub fn erase_first_heredoc(&mut self) {
-        let _ = self;
-        todo!()
+        self.open_heredocs.remove(0);
     }
 
     pub fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (self, buf);
-        todo!()
+        if self.literal_stack.len() * 5 + 2 >= SERIALIZATION_BUFFER_SIZE {
+            return 0;
+        }
+
+        buf[0] = self.literal_stack.len() as u8;
+        let mut size = 1;
+        for l in &self.literal_stack {
+            buf[size] = l.typ as u8;
+            buf[size + 1] = l.open_delimiter as u8;
+            buf[size + 2] = l.close_delimiter as u8;
+            buf[size + 3] = l.nesting_depth as u8;
+            buf[size + 4] = u8::from(l.allows_interpolation);
+            size += 5;
+        }
+
+        buf[size] = self.open_heredocs.len() as u8;
+        size += 1;
+        for h in &self.open_heredocs {
+            if size + 2 + h.word.len() >= SERIALIZATION_BUFFER_SIZE {
+                return 0;
+            }
+            // Not in C. C tests size+2 but writes 4 bytes plus the word, so it can write 1 byte
+            // past the buffer, and it stores the word length in one byte, so a word over 255
+            // bytes reads back short. Both end in an assert abort in the C build. Drop the
+            // state the way C does for a state that is too big.
+            if size + 4 + h.word.len() > SERIALIZATION_BUFFER_SIZE || h.word.len() > 255 {
+                return 0;
+            }
+            buf[size] = u8::from(h.end_word_indentation_allowed);
+            buf[size + 1] = u8::from(h.allows_interpolation);
+            buf[size + 2] = u8::from(h.started);
+            buf[size + 3] = h.word.len() as u8;
+            size += 4;
+            buf[size..size + h.word.len()].copy_from_slice(&h.word);
+            size += h.word.len();
+        }
+
+        size
     }
 
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = (self, buf);
-        todo!()
+        self.has_leading_whitespace = false;
+        self.reset();
+
+        if buf.is_empty() {
+            return;
+        }
+
+        let literal_depth = usize::from(buf[0]);
+        let mut size = 1;
+        for _ in 0..literal_depth {
+            self.literal_stack.push(Literal {
+                typ: u16::from(buf[size]),
+                open_delimiter: i32::from(buf[size + 1]),
+                close_delimiter: i32::from(buf[size + 2]),
+                nesting_depth: i32::from(buf[size + 3]),
+                allows_interpolation: buf[size + 4] != 0,
+            });
+            size += 5;
+        }
+
+        let open_heredoc_count = usize::from(buf[size]);
+        size += 1;
+        for _ in 0..open_heredoc_count {
+            let word_length = usize::from(buf[size + 3]);
+            self.open_heredocs.push(Heredoc {
+                end_word_indentation_allowed: buf[size] != 0,
+                allows_interpolation: buf[size + 1] != 0,
+                started: buf[size + 2] != 0,
+                word: buf[size + 4..size + 4 + word_length].to_vec(),
+            });
+            size += 4 + word_length;
+        }
     }
 }
 

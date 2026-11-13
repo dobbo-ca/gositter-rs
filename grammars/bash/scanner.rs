@@ -17,10 +17,11 @@ pub struct Heredoc {
 
 impl Heredoc {
     /// `reset_heredoc`.
-    #[allow(dead_code)] // tests-first stub; the port calls it
     fn reset(&mut self) {
-        let _ = self;
-        todo!()
+        self.is_raw = false;
+        self.started = false;
+        self.allows_indent = false;
+        self.delimiter.clear(); // reset_string
     }
 }
 
@@ -35,30 +36,91 @@ pub struct Scanner {
 impl Scanner {
     /// `tree_sitter_bash_external_scanner_create`.
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     /// `heredoc_new` + `array_push`.
     pub fn push_heredoc(&mut self, allows_indent: bool) {
-        let _ = (self, allows_indent);
-        todo!()
+        self.heredocs.push(Heredoc {
+            allows_indent,
+            ..Heredoc::default()
+        });
     }
 
     pub fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (self, buf);
-        todo!()
+        buf[0] = self.last_glob_paren_depth;
+        buf[1] = u8::from(self.ext_was_in_double_quote);
+        buf[2] = u8::from(self.ext_saw_outside_quote);
+        buf[3] = self.heredocs.len() as u8; // (char) of the count, wraps at 256
+        let mut size = 4;
+
+        for h in &self.heredocs {
+            if size + 3 + 4 + h.delimiter.len() >= SERIALIZATION_BUFFER_SIZE {
+                return 0;
+            }
+
+            buf[size] = u8::from(h.is_raw);
+            buf[size + 1] = u8::from(h.started);
+            buf[size + 2] = u8::from(h.allows_indent);
+            size += 3;
+
+            buf[size..size + 4].copy_from_slice(&(h.delimiter.len() as u32).to_le_bytes());
+            size += 4;
+            buf[size..size + h.delimiter.len()].copy_from_slice(&h.delimiter);
+            size += h.delimiter.len();
+        }
+        size
     }
 
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = (self, buf);
-        todo!()
+        if buf.is_empty() {
+            // reset: C clears each heredoc and keeps the count.
+            for h in &mut self.heredocs {
+                h.reset();
+            }
+            return;
+        }
+        self.last_glob_paren_depth = buf[0];
+        self.ext_was_in_double_quote = buf[1] != 0;
+        self.ext_saw_outside_quote = buf[2] != 0;
+        let heredoc_count = usize::from(buf[3]);
+        let mut size = 4;
+        // C never shrinks heredocs here: slots past heredoc_count stay as they are.
+        while self.heredocs.len() < heredoc_count {
+            self.push_heredoc(false);
+        }
+        for h in self.heredocs.iter_mut().take(heredoc_count) {
+            h.is_raw = buf[size] != 0;
+            h.started = buf[size + 1] != 0;
+            h.allows_indent = buf[size + 2] != 0;
+            size += 3;
+
+            let n = u32::from_le_bytes([buf[size], buf[size + 1], buf[size + 2], buf[size + 3]])
+                as usize;
+            size += 4;
+            h.delimiter.clear();
+            h.delimiter.extend_from_slice(&buf[size..size + n]);
+            size += n;
+        }
     }
 
     /// The state `new` returns, with the heredoc slots kept.
-    #[allow(dead_code)] // tests-first stub; the port calls it
     pub fn reset(&mut self) {
-        let _ = self;
-        todo!()
+        let mut heredocs = std::mem::take(&mut self.heredocs);
+        // Give back what a huge input grew.
+        if heredocs.capacity() > 16
+            || heredocs
+                .iter()
+                .any(|d| d.delimiter.capacity() > 1024 || d.current_leading_word.capacity() > 1024)
+        {
+            heredocs = Vec::new();
+        } else {
+            heredocs.clear();
+        }
+        *self = Scanner {
+            heredocs,
+            ..Scanner::default()
+        };
     }
 }
 

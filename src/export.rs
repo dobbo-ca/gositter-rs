@@ -1,6 +1,7 @@
 //! gositter `export_test.go`: hooks into the runtime's internals for the integration tests
 //! and the fuzz targets. Not part of the API.
 
+use crate::subtree::{Subtree, SubtreeHeap, SubtreePool};
 use crate::{Language, StateId, Symbol};
 
 impl Language {
@@ -61,4 +62,56 @@ impl Language {
         }
         None
     }
+}
+
+// The hooks below are used only by the subtree tests (src/subtree/tests_*.rs), so a non-test
+// build sees them as dead code.
+
+/// SummaryCheck: what summaries_ok went over. `bad` is "" or what differed first.
+#[allow(dead_code)]
+#[doc(hidden)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SummaryCheck {
+    pub nodes: usize,
+    pub two_heap: usize,
+    pub column: usize,
+    pub resumed: usize,
+    pub bad: String,
+}
+
+/// summarizeChildrenRef: ts_subtree_summarize_children on the ts_subtree_* accessors, a
+/// line of C to a line: the reference for summarize, summarize_two_heap and both loops of
+/// summarize_children. The kind mask and F_HAS_REPEAT are not in C.
+#[allow(dead_code)]
+#[doc(hidden)]
+pub(crate) fn summarize_children_ref(_sp: &mut SubtreePool, _s: Subtree, _lang: &Language) {
+    todo!("gositter-rs-2f0.8")
+}
+
+/// summarized: puts fresh in the slot of s, summarizes it with f and puts the node back.
+#[allow(dead_code)]
+#[doc(hidden)]
+pub(crate) fn summarized(
+    _sp: &mut SubtreePool,
+    _s: Subtree,
+    _fresh: SubtreeHeap,
+    _lang: &Language,
+    _f: fn(&mut SubtreePool, Subtree, &Language),
+) -> SubtreeHeap {
+    todo!("gositter-rs-2f0.8")
+}
+
+/// checkSummary: compares, for one node with children, against summarize_children_ref: the
+/// summary as it stands, what summarize makes of the node as new_node leaves it, and what it
+/// makes of an ERROR node over the same children, from the start and resumed after some of
+/// them.
+#[allow(dead_code)]
+#[doc(hidden)]
+pub(crate) fn check_summary(
+    _sp: &mut SubtreePool,
+    _s: Subtree,
+    _lang: &Language,
+    _c: &mut SummaryCheck,
+) {
+    todo!("gositter-rs-2f0.8")
 }

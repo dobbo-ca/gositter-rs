@@ -61,7 +61,7 @@ pub fn dump<N: DumpNode>(out: &mut Vec<u8>, root: N, fields: &[&str], src: &[u8]
     // Own copy: the probe name must not land in the caller's slice.
     let mut all_fields: Vec<&str> = fields.to_vec();
     all_fields.push("nonexistent_zz");
-    let mut d = Dumper {
+    let mut d: Dumper<'_, N> = Dumper {
         out: &mut *out,
         src,
         fields: all_fields,

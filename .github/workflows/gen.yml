@@ -29,6 +29,7 @@ jobs:
           target: gen-out
           push: false
           outputs: type=local,dest=gen-out
+          provenance: false
           cache-from: type=gha,scope=gositter-rs-gen
           cache-to: type=gha,mode=max,scope=gositter-rs-gen
       - run: du -ab gen-out | sort -n | tail -25 | tee -a "$GITHUB_STEP_SUMMARY"

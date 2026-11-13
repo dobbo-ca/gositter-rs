@@ -399,6 +399,8 @@ pub struct Lexer<'s> {
     /// Set by lex functions (a symbol) and scanners (an external token index).
     pub result_symbol: Symbol,
     /// The whole input (TSInput with ts_string_input_read).
+    // Read by the lexer code of plan Task 6b; until then only constructed.
+    #[allow(dead_code)]
     pub(crate) src: &'s [u8],
     pub(crate) state: crate::lexer::LexerState,
 }

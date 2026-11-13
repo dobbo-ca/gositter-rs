@@ -361,10 +361,10 @@ fn go_quote_cases() {
     assert_eq!(go_quote("–>"), "\"–>\"");
     assert_eq!(go_quote("[–>"), "\"[–>\"");
     assert_eq!(go_quote("é"), "\"é\"");
-    assert_eq!(go_quote("\u{a0}"), r#"" ""#);
-    assert_eq!(go_quote("\u{200b}"), r#""​""#);
-    assert_eq!(go_quote("\u{feff}"), r#""﻿""#);
-    assert_eq!(go_quote("\u{e000}"), r#""""#);
+    assert_eq!(go_quote("\u{a0}"), "\"\\u00a0\"");
+    assert_eq!(go_quote("\u{200b}"), "\"\\u200b\"");
+    assert_eq!(go_quote("\u{feff}"), "\"\\ufeff\"");
+    assert_eq!(go_quote("\u{e000}"), "\"\\ue000\"");
     assert_eq!(go_quote("\u{10ffff}"), r#""\U0010ffff""#);
     assert_eq!(go_quote("a b"), "\"a b\"");
     assert_eq!(go_quote(""), "\"\"");

@@ -1,5 +1,44 @@
 //! Port of gositter `grammars/lua/scanner.go` (tree-sitter-lua v0.5.0 `src/scanner.c`): the scanner
-//! state, `serialize` and `deserialize`. `scan` waits for the runtime `Lexer` (Task 12).
+//! state, `serialize`, `deserialize` and `scan`.
+
+use gositter::{Lexer, Symbol};
+
+/// enum TokenType (the `Block` prefix on every name follows C's TokenType)
+#[allow(clippy::enum_variant_names)]
+#[derive(Clone, Copy)]
+enum Tok {
+    BlockCommentStart,
+    BlockCommentContent,
+    BlockCommentEnd,
+    BlockStringStart,
+    BlockStringContent,
+    BlockStringEnd,
+}
+
+/// iswspace in the "C" locale, which is what a process that never calls setlocale gets: the six
+/// ASCII spaces, nothing above 0x7F, not -1.
+fn iswspace(c: i32) -> bool {
+    c == b' ' as i32 || (b'\t' as i32..=b'\r' as i32).contains(&c)
+}
+
+/// consume_char
+fn consume_char(c: u8, l: &mut Lexer<'_>) -> bool {
+    if l.lookahead != i32::from(c) {
+        return false;
+    }
+    l.advance(false);
+    true
+}
+
+/// consume_and_count_char. u8 on purpose: 256 '=' wrap to level 0.
+fn consume_and_count_char(c: u8, l: &mut Lexer<'_>) -> u8 {
+    let mut count: u8 = 0;
+    while l.lookahead == i32::from(c) {
+        count = count.wrapping_add(1);
+        l.advance(false);
+    }
+    count
+}
 
 /// C never assigns `ending_char` a non-zero value; it only comes back from `deserialize`, so it is
 /// 0 on every reachable path. Kept for the bytes.
@@ -32,6 +71,149 @@ impl Scanner {
         }
         self.level_count = buf[1];
     }
+
+    /// reset_state
+    fn reset_state(&mut self) {
+        self.ending_char = 0;
+        self.level_count = 0;
+    }
+
+    /// scan_block_start
+    fn scan_block_start(&mut self, l: &mut Lexer<'_>) -> bool {
+        if consume_char(b'[', l) {
+            let level = consume_and_count_char(b'=', l);
+
+            if consume_char(b'[', l) {
+                self.level_count = level;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// scan_block_end
+    fn scan_block_end(&mut self, l: &mut Lexer<'_>) -> bool {
+        if consume_char(b']', l) {
+            let level = consume_and_count_char(b'=', l);
+
+            if self.level_count == level && consume_char(b']', l) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// scan_block_content
+    fn scan_block_content(&mut self, l: &mut Lexer<'_>) -> bool {
+        while l.lookahead != 0 {
+            if l.lookahead == b']' as i32 {
+                l.mark_end();
+
+                if self.scan_block_end(l) {
+                    return true;
+                }
+            } else {
+                l.advance(false);
+            }
+        }
+        false
+    }
+
+    /// scan_comment_start
+    fn scan_comment_start(&mut self, l: &mut Lexer<'_>) -> bool {
+        if consume_char(b'-', l) && consume_char(b'-', l) {
+            l.mark_end();
+
+            if self.scan_block_start(l) {
+                l.mark_end();
+                l.result_symbol = Tok::BlockCommentStart as Symbol;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// scan_comment_content
+    fn scan_comment_content(&mut self, l: &mut Lexer<'_>) -> bool {
+        if self.ending_char == 0 {
+            // block comment
+            if self.scan_block_content(l) {
+                l.result_symbol = Tok::BlockCommentContent as Symbol;
+                return true;
+            }
+            return false;
+        }
+
+        while l.lookahead != 0 {
+            if l.lookahead == i32::from(self.ending_char) {
+                self.reset_state();
+                l.result_symbol = Tok::BlockCommentContent as Symbol;
+                return true;
+            }
+            l.advance(false);
+        }
+        false
+    }
+
+    /// tree_sitter_lua_external_scanner_scan
+    fn scan(&mut self, l: &mut Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        let valid = |t: Tok| valid_symbols[t as usize];
+        if valid(Tok::BlockStringEnd) && self.scan_block_end(l) {
+            self.reset_state();
+            l.result_symbol = Tok::BlockStringEnd as Symbol;
+            return true;
+        }
+
+        if valid(Tok::BlockStringContent) && self.scan_block_content(l) {
+            l.result_symbol = Tok::BlockStringContent as Symbol;
+            return true;
+        }
+
+        if valid(Tok::BlockCommentEnd) && self.ending_char == 0 && self.scan_block_end(l) {
+            self.reset_state();
+            l.result_symbol = Tok::BlockCommentEnd as Symbol;
+            return true;
+        }
+
+        if valid(Tok::BlockCommentContent) && self.scan_comment_content(l) {
+            return true;
+        }
+
+        // skip_whitespaces
+        while iswspace(l.lookahead) {
+            l.advance(true);
+        }
+
+        if valid(Tok::BlockStringStart) && self.scan_block_start(l) {
+            l.result_symbol = Tok::BlockStringStart as Symbol;
+            return true;
+        }
+
+        if valid(Tok::BlockCommentStart) && self.scan_comment_start(l) {
+            return true;
+        }
+
+        false
+    }
+}
+
+impl gositter::ExternalScanner for Scanner {
+    fn scan(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        Scanner::scan(self, lexer, valid_symbols)
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]

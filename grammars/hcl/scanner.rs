@@ -1,5 +1,22 @@
 //! Port of gositter `grammars/hcl/scanner.go` (tree-sitter-hcl v1.2.0 `src/scanner.c`): the scanner
-//! state, `serialize`, `deserialize` and `reset`. `scan` waits for the runtime `Lexer` (Task 12).
+//! state, `serialize`, `deserialize`, `reset` and `scan`.
+//!
+//! skip_comment is not ported: C defines it and never calls it.
+
+use gositter::{Lexer, Symbol};
+
+/// enum TokenType
+#[derive(Clone, Copy)]
+enum Tok {
+    QuotedTemplateStart,
+    QuotedTemplateEnd,
+    TemplateLiteralChunk,
+    TemplateInterpolationStart,
+    TemplateInterpolationEnd,
+    TemplateDirectiveStart,
+    TemplateDirectiveEnd,
+    HeredocIdentifier,
+}
 
 // enum ContextType. u32 because C serializes sizeof(ContextType) == 4.
 const CTX_TEMPLATE_INTERPOLATION: u32 = 0;
@@ -9,6 +26,44 @@ const CTX_HEREDOC_TEMPLATE: u32 = 3;
 
 /// `CHAR_MAX`: 127, or 255 where char is unsigned (linux/arm64).
 const CHAR_MAX: usize = crate::cchar::MAX as usize;
+
+// The isw* functions are libc and locale dependent. The parser never calls setlocale, so the "C"
+// locale applies; there darwin and glibc classify only ASCII. Checked on darwin/arm64 against libc
+// for every value -2..0x2FFFF.
+
+fn iswspace(c: i32) -> bool {
+    c == b' ' as i32 || (b'\t' as i32..=b'\r' as i32).contains(&c)
+}
+
+fn iswalnum(c: i32) -> bool {
+    (b'0' as i32..=b'9' as i32).contains(&c)
+        || (b'a' as i32..=b'z' as i32).contains(&c)
+        || (b'A' as i32..=b'Z' as i32).contains(&c)
+}
+
+fn iswxdigit(c: i32) -> bool {
+    (b'0' as i32..=b'9' as i32).contains(&c)
+        || (b'a' as i32..=b'f' as i32).contains(&c)
+        || (b'A' as i32..=b'F' as i32).contains(&c)
+}
+
+/// accept_inplace
+fn accept_inplace(l: &mut Lexer<'_>, token: Tok) -> bool {
+    l.result_symbol = token as Symbol;
+    true
+}
+
+/// accept_and_advance
+fn accept_and_advance(l: &mut Lexer<'_>, token: Tok) -> bool {
+    l.advance(false);
+    accept_inplace(l, token)
+}
+
+/// consume_wxdigit
+fn consume_wxdigit(l: &mut Lexer<'_>) -> bool {
+    l.advance(false);
+    iswxdigit(l.lookahead)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 struct Context {
@@ -98,6 +153,233 @@ impl Scanner {
         }
         // C asserts size == length here; true for anything `serialize` wrote.
     }
+
+    /// VEC_POP
+    fn pop(&mut self) {
+        self.context_stack.pop();
+    }
+
+    /// in_context_type
+    fn in_context_type(&self, typ: u32) -> bool {
+        match self.context_stack.last() {
+            None => false,
+            Some(ctx) => ctx.typ == typ,
+        }
+    }
+
+    /// in_quoted_context
+    fn in_quoted_context(&self) -> bool {
+        self.in_context_type(CTX_QUOTED_TEMPLATE)
+    }
+
+    /// in_heredoc_context
+    fn in_heredoc_context(&self) -> bool {
+        self.in_context_type(CTX_HEREDOC_TEMPLATE)
+    }
+
+    /// in_template_context
+    fn in_template_context(&self) -> bool {
+        self.in_quoted_context() || self.in_heredoc_context()
+    }
+
+    /// in_interpolation_context
+    fn in_interpolation_context(&self) -> bool {
+        self.in_context_type(CTX_TEMPLATE_INTERPOLATION)
+    }
+
+    /// in_directive_context
+    fn in_directive_context(&self) -> bool {
+        self.in_context_type(CTX_TEMPLATE_DIRECTIVE)
+    }
+
+    /// scan, tree_sitter_hcl_external_scanner_scan
+    fn scan(&mut self, l: &mut Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        let valid = |t: Tok| valid_symbols[t as usize];
+        let mut has_leading_whitespace_with_newline = false;
+        while iswspace(l.lookahead) {
+            if l.lookahead == b'\n' as i32 {
+                has_leading_whitespace_with_newline = true;
+            }
+            l.advance(true);
+        }
+        if l.lookahead == 0 {
+            return false;
+        }
+        // manage quoted context
+        if valid(Tok::QuotedTemplateStart)
+            && !self.in_quoted_context()
+            && l.lookahead == b'"' as i32
+        {
+            self.push(CTX_QUOTED_TEMPLATE);
+            return accept_and_advance(l, Tok::QuotedTemplateStart);
+        }
+        if valid(Tok::QuotedTemplateEnd) && self.in_quoted_context() && l.lookahead == b'"' as i32 {
+            self.pop();
+            return accept_and_advance(l, Tok::QuotedTemplateEnd);
+        }
+
+        // manage template interpolations
+        if valid(Tok::TemplateInterpolationStart)
+            && valid(Tok::TemplateLiteralChunk)
+            && !self.in_interpolation_context()
+            && l.lookahead == b'$' as i32
+        {
+            l.advance(false);
+            if l.lookahead == b'{' as i32 {
+                self.push(CTX_TEMPLATE_INTERPOLATION);
+                return accept_and_advance(l, Tok::TemplateInterpolationStart);
+            }
+            // try to scan escape sequence
+            if l.lookahead == b'$' as i32 {
+                l.advance(false);
+                if l.lookahead == b'{' as i32 {
+                    // $${
+                    return accept_and_advance(l, Tok::TemplateLiteralChunk);
+                }
+            }
+            return accept_inplace(l, Tok::TemplateLiteralChunk);
+        }
+        if valid(Tok::TemplateInterpolationEnd)
+            && self.in_interpolation_context()
+            && l.lookahead == b'}' as i32
+        {
+            self.pop();
+            return accept_and_advance(l, Tok::TemplateInterpolationEnd);
+        }
+
+        // manage template directives
+        if valid(Tok::TemplateDirectiveStart)
+            && valid(Tok::TemplateLiteralChunk)
+            && !self.in_directive_context()
+            && l.lookahead == b'%' as i32
+        {
+            l.advance(false);
+            if l.lookahead == b'{' as i32 {
+                self.push(CTX_TEMPLATE_DIRECTIVE);
+                return accept_and_advance(l, Tok::TemplateDirectiveStart);
+            }
+            // try to scan escape sequence
+            if l.lookahead == b'%' as i32 {
+                l.advance(false);
+                if l.lookahead == b'{' as i32 {
+                    // %%{
+                    return accept_and_advance(l, Tok::TemplateLiteralChunk);
+                }
+            }
+            return accept_inplace(l, Tok::TemplateLiteralChunk);
+        }
+        if valid(Tok::TemplateDirectiveEnd)
+            && self.in_directive_context()
+            && l.lookahead == b'}' as i32
+        {
+            self.pop();
+            return accept_and_advance(l, Tok::TemplateDirectiveEnd);
+        }
+
+        // manage heredoc context
+        if valid(Tok::HeredocIdentifier) && !self.in_heredoc_context() {
+            let ctx = self.push(CTX_HEREDOC_TEMPLATE);
+            while iswalnum(l.lookahead) || l.lookahead == b'_' as i32 || l.lookahead == b'-' as i32
+            {
+                // C narrows to char here; every accepted code point is ASCII.
+                ctx.heredoc_identifier.push(l.lookahead as u8);
+                l.advance(false);
+            }
+            return accept_inplace(l, Tok::HeredocIdentifier);
+        }
+        if valid(Tok::HeredocIdentifier)
+            && self.in_heredoc_context()
+            && has_leading_whitespace_with_newline
+        {
+            let expected_identifier =
+                &self.context_stack[self.context_stack.len() - 1].heredoc_identifier;
+
+            for &b in expected_identifier {
+                if l.lookahead == i32::from(b) {
+                    l.advance(false);
+                } else {
+                    return accept_inplace(l, Tok::TemplateLiteralChunk);
+                }
+            }
+            // check if the identifier is on a line of its own
+            l.mark_end();
+            while iswspace(l.lookahead) && l.lookahead != b'\n' as i32 {
+                l.advance(false);
+            }
+            if l.lookahead == b'\n' as i32 {
+                self.pop();
+                return accept_inplace(l, Tok::HeredocIdentifier);
+            }
+            l.advance(false);
+            l.mark_end();
+            return accept_inplace(l, Tok::TemplateLiteralChunk);
+        }
+        // manage template literal chunks
+
+        // handle template literal chunks in quoted contexts
+        //
+        // they may not contain newlines and may contain escape sequences
+        if valid(Tok::TemplateLiteralChunk)
+            && self.in_quoted_context()
+            && l.lookahead == b'\\' as i32
+        {
+            l.advance(false);
+            match u8::try_from(l.lookahead) {
+                Ok(b'"' | b'n' | b'r' | b't' | b'\\') => {
+                    return accept_and_advance(l, Tok::TemplateLiteralChunk);
+                }
+                Ok(b'u') => {
+                    for _ in 0..4 {
+                        if !consume_wxdigit(l) {
+                            return false;
+                        }
+                    }
+                    return accept_and_advance(l, Tok::TemplateLiteralChunk);
+                }
+                Ok(b'U') => {
+                    for _ in 0..8 {
+                        if !consume_wxdigit(l) {
+                            return false;
+                        }
+                    }
+                    return accept_and_advance(l, Tok::TemplateLiteralChunk);
+                }
+                _ => return false,
+            }
+        }
+
+        // handle all other quoted template or string literal characters
+        if valid(Tok::TemplateLiteralChunk) && self.in_template_context() {
+            return accept_and_advance(l, Tok::TemplateLiteralChunk);
+        }
+
+        // probably not handled by the external scanner
+        false
+    }
+}
+
+impl gositter::ExternalScanner for Scanner {
+    fn scan(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        Scanner::scan(self, lexer, valid_symbols)
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+
+    fn reset(&mut self) -> bool {
+        Scanner::reset(self);
+        true
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]
@@ -239,14 +521,14 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: needs impl ExternalScanner for Scanner (Task 12)
-#[cfg(any())]
-mod reset_tests {
-    use super::tests::serialize;
-    use super::*;
-    use std::{cell::RefCell, rc::Rc};
+#[cfg(test)]
+mod parser_tests {
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
 
-    const RESET_INPUTS: [&str; 9] = [
+    pub(super) const RESET_INPUTS: [&str; 9] = [
         "",
         "a = 1\n",
         "a = \"x ${y} z\"\n",
@@ -257,6 +539,35 @@ mod reset_tests {
         "a = \"%{ for i in l }${i}%{ endfor }\"\nb = <<A\n${\n",
         "a = \"${ \"${ \"${ \"unclosed\n",
     ];
+
+    // B parsed after A on one parser has the tree of B on a fresh parser.
+    // TestReusedScannerSameTree (reset_test.go)
+    #[test]
+    #[ignore = "gositter-rs-vjz.12"]
+    fn reused_scanner_same_tree() {
+        let mut reused = gositter::Parser::new();
+        reused.set_language(language()).unwrap();
+        for a in RESET_INPUTS {
+            for b in RESET_INPUTS {
+                reused.parse(a.as_bytes());
+                let got = reused.parse(b.as_bytes()).unwrap().root_node().to_sexp();
+                let mut fresh = gositter::Parser::new();
+                fresh.set_language(language()).unwrap();
+                let want = fresh.parse(b.as_bytes()).unwrap().root_node().to_sexp();
+                assert_eq!(got, want, "{b:?} after {a:?}");
+            }
+        }
+    }
+}
+
+// gositter-rs-vjz.12: needs a way to read the parser's kept scanner (ask the runtime)
+#[cfg(any())]
+mod reset_tests {
+    use super::tests::serialize;
+    use super::*;
+    use std::{cell::RefCell, rc::Rc};
+
+    use super::parser_tests::RESET_INPUTS;
 
     // The Rust form of `language.ExternalScanner.New = ...`: a spy wraps the scanner the parser
     // makes and keeps a handle to it. `Language: Clone`, and the constructor is a plain field.
@@ -330,26 +641,6 @@ mod reset_tests {
             dirty, 0,
             "no input left the scanner dirty, the test checks nothing"
         );
-    }
-
-    // B parsed after A on one parser has the tree of B on a fresh parser.
-    // TestReusedScannerSameTree (reset_test.go)
-    #[test]
-    #[ignore = "gositter-rs-vjz.12"]
-    fn reused_scanner_same_tree() {
-        let language = super::super::language();
-        let mut reused = gositter::Parser::new();
-        reused.set_language(language);
-        for a in RESET_INPUTS {
-            for b in RESET_INPUTS {
-                reused.parse(a.as_bytes());
-                let got = reused.parse(b.as_bytes()).root_node().to_string();
-                let mut fresh = gositter::Parser::new();
-                fresh.set_language(language);
-                let want = fresh.parse(b.as_bytes()).root_node().to_string();
-                assert_eq!(got, want, "{b:?} after {a:?}");
-            }
-        }
     }
 
     // TestResetDropsBigBuffers (reset_test.go). Go counts the capacity of the kept slots and of

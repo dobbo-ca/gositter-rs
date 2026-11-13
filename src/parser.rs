@@ -53,6 +53,16 @@ impl Parser {
     }
 
     /// ts_parser_parse with no old tree and UTF-8 input. `None` if no language is set.
+    ///
+    /// The tree and its nodes borrow the parser until its next parse, so a node held across
+    /// a second parse does not compile (`tree_does_not_outlive_parse`):
+    ///
+    /// ```compile_fail,E0499
+    /// let mut p = gositter::Parser::new();
+    /// let root = p.parse(b"x").unwrap().root_node();
+    /// p.parse(b"y");
+    /// let _ = root.kind();
+    /// ```
     pub fn parse(&mut self, _src: &[u8]) -> Option<&Tree> {
         todo!("gositter-rs-2f0.11")
     }

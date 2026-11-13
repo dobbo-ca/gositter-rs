@@ -1,15 +1,20 @@
 //! node.c, plus the gositter-only `children`, `preorder` and `preorder_mask`.
 
+use crate::length::Length;
+use crate::subtree::Subtree;
 use crate::{FieldId, Language, Point, Symbol, Tree, TreeCursor};
 
 /// TSNode: gositter's `{tree, id, x, y}`. Go's null node is `None`. `==` is Go's `==`:
 /// the same tree (by address) and the same fields.
 #[derive(Clone, Copy)]
 pub struct Node<'t> {
-    tree: &'t Tree,
-    id: u32,
-    x: u64,
-    y: u64,
+    pub(crate) tree: &'t Tree,
+    /// Slot in `tree.pool.children`.
+    pub(crate) id: u32,
+    /// Start byte in the low 32 bits, alias symbol in the high 32 bits.
+    pub(crate) x: u64,
+    /// Start row in the low 32 bits, start column in the high 32 bits.
+    pub(crate) y: u64,
 }
 
 impl PartialEq for Node<'_> {
@@ -22,6 +27,97 @@ impl PartialEq for Node<'_> {
 }
 
 impl Eq for Node<'_> {}
+
+/// NodeChildIterator. `children` is the parent's children as a slab offset;
+/// `alias_sequence` is `Language::alias_sequence` of the parent's production.
+pub(crate) struct NodeChildIterator<'t> {
+    pub(crate) tree: &'t Tree,
+    pub(crate) parent: Subtree,
+    pub(crate) position: Length,
+    pub(crate) child_index: u32,
+    pub(crate) structural_child_index: u32,
+    pub(crate) alias_sequence: Option<usize>,
+    pub(crate) children: u32,
+    pub(crate) child_count: u32,
+}
+
+impl<'t> Iterator for NodeChildIterator<'t> {
+    type Item = Node<'t>;
+
+    /// ts_node_child_iterator_next (Go `next`, which returns the node through a pointer).
+    fn next(&mut self) -> Option<Node<'t>> {
+        todo!("gositter-rs-2f0.10")
+    }
+}
+
+impl<'t> Node<'t> {
+    /// ts_node_new (Go `nodeNew`)
+    pub(crate) fn node_new(
+        _tree: &'t Tree,
+        _id: u32,
+        _position: Length,
+        _alias: Symbol,
+    ) -> Node<'t> {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node__alias (Go `alias`)
+    pub(crate) fn alias(self) -> Symbol {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node__subtree (Go `subtree`)
+    pub(crate) fn subtree(self) -> Subtree {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node_iterate_children (Go `iterateChildren`)
+    pub(crate) fn iterate_children(self) -> NodeChildIterator<'t> {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node__is_relevant (Go `isRelevant`)
+    pub(crate) fn is_relevant(self, _include_anonymous: bool) -> bool {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node__relevant_child_count (Go `relevantChildCount`)
+    pub(crate) fn relevant_child_count(self, _include_anonymous: bool) -> u32 {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node__child (Go `child`; renamed, as `child` is ts_node_child here), with the loop
+    /// of ts_node_child_iterator_next written out.
+    pub(crate) fn child_inner(
+        self,
+        _child_index: u32,
+        _include_anonymous: bool,
+    ) -> Option<Node<'t>> {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// Go `appendChildren`: the enumeration ts_node__child walks, appended to `buf`.
+    fn append_children(self, _buf: &mut Vec<Node<'t>>, _include_anonymous: bool) {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// Go `preorderChildren`: the loop of ts_node_child_iterator_next with
+    /// ts_node__is_relevant and ts_node__relevant_child_count folded in, on an explicit
+    /// stack. A mask of 0 walks every node.
+    fn preorder_children<F: FnMut(Node<'t>) -> bool>(self, _mask: u32, _f: &mut F) {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node__field_name_from_language (Go `fieldNameFromLanguage`). `None` for "".
+    fn field_name_from_language(self, _structural_child_index: u32) -> Option<&'static str> {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ts_node_child_with_descendant (Go `childWithDescendant`)
+    fn child_with_descendant(self, _descendant: Node<'t>) -> Option<Node<'t>> {
+        todo!("gositter-rs-2f0.10")
+    }
+}
 
 impl<'t> Node<'t> {
     /// ts_node_language
@@ -175,3 +271,6 @@ impl<'t> Node<'t> {
         todo!("gositter-rs-2f0.10")
     }
 }
+
+#[cfg(test)]
+mod tests;

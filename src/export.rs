@@ -2,6 +2,7 @@
 //! and the fuzz targets. Not part of the API.
 
 use crate::length::{Length, length_add};
+use crate::lexer::LexerState;
 use crate::subtree::{
     ERROR_COST_PER_RECOVERY, ERROR_COST_PER_SKIPPED_CHAR, ERROR_COST_PER_SKIPPED_LINE,
     ERROR_COST_PER_SKIPPED_TREE, F_DEPENDS_ON_COLUMN, F_EXTRA, F_FRAGILE_LEFT, F_FRAGILE_RIGHT,
@@ -10,8 +11,8 @@ use crate::subtree::{
     TREE_STATE_NONE,
 };
 use crate::{
-    ExternalScanner, FieldId, Language, Node, Parser, SYMBOL_ERROR, SYMBOL_ERROR_REPEAT, StateId,
-    Symbol,
+    ExternalScanner, FieldId, Language, Lexer, Node, Parser, SYMBOL_ERROR, SYMBOL_ERROR_REPEAT,
+    StateId, Symbol,
 };
 
 impl Language {
@@ -716,4 +717,98 @@ impl<'t> Node<'t> {
             return None;
         }
     }
+}
+
+// --- lexer (plan Task 13: the fuzz target advance_run) ---
+
+/// gositter `checkAdvanceRun`: (advance_run, the byte loop it replaces) snapshots of two lexers
+/// over `src`, both moved to `start` first.
+pub(crate) fn advance_run_snapshots(
+    src: &[u8],
+    set: &'static [bool; 256],
+    start: usize,
+    skip: bool,
+    column_valid: bool,
+) -> ([u32; 16], [u32; 16]) {
+    let make = || {
+        let mut l = Lexer::new(src, LexerState::default());
+        l.start();
+        while l.state.current_position.bytes < start as u32 && l.state.has_chunk {
+            l.advance(false);
+        }
+        if !column_valid {
+            l.invalidate_column_data();
+        }
+        l
+    };
+    let (mut a, mut b) = (make(), make());
+    advance_run_ref(&mut a, set, skip);
+    b.advance_run(set, skip);
+    (lexer_snapshot(&mut b), lexer_snapshot(&mut a))
+}
+
+const fn advance_run_set(which: usize) -> [bool; 256] {
+    let mut set = [false; 256];
+    let mut c = 1;
+    while c < 128 {
+        set[c] = match which {
+            0 => matches!(c, 9..=13 | 32), // \t..\r and space
+            1 => c != b'\n' as usize && c != b'"' as usize,
+            2 => c & 1 == 0,
+            _ => true,
+        };
+        c += 1;
+    }
+    set
+}
+
+/// The four sets of Go `FuzzAdvanceRun`.
+static ADVANCE_RUN_SETS: [[bool; 256]; 4] = [
+    advance_run_set(0),
+    advance_run_set(1),
+    advance_run_set(2),
+    advance_run_set(3),
+];
+
+/// The body of Go `FuzzAdvanceRun`: `advance_run` gives the same lexer as the byte loop.
+/// `which % 4` picks the set, `which & 4 == 0` keeps the column valid.
+#[doc(hidden)]
+pub fn advance_run_matches_reference(src: &[u8], which: u8, start: u8, skip: bool) -> bool {
+    let set = &ADVANCE_RUN_SETS[usize::from(which % 4)];
+    let start = usize::from(start) % (src.len() + 1);
+    let (got, want) = advance_run_snapshots(src, set, start, skip, which & 4 == 0);
+    got == want
+}
+
+fn advance_run_ref(l: &mut Lexer<'_>, set: &[bool; 256], skip: bool) {
+    while (l.lookahead as u32) < 128 && set[l.lookahead as usize] && l.state.has_chunk {
+        l.advance(skip);
+    }
+}
+
+/// Everything a lex function or the parser can see of a lexer.
+fn lexer_snapshot(l: &mut Lexer<'_>) -> [u32; 16] {
+    let b = |v: bool| v as u32;
+    let s = &l.state;
+    let mut out = [
+        l.lookahead as u32,
+        s.lookahead_size,
+        b(s.has_chunk),
+        0,
+        s.current_position.bytes,
+        s.current_position.extent.row,
+        s.current_position.extent.column,
+        s.token_start_position.bytes,
+        s.token_start_position.extent.row,
+        s.token_start_position.extent.column,
+        s.column_data.value,
+        b(s.column_data.valid),
+        s.chunk_start,
+        s.chunk_size,
+        0,
+        0,
+    ];
+    out[3] = b(l.eof());
+    out[14] = l.get_column();
+    out
 }

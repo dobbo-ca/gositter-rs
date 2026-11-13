@@ -1,0 +1,38 @@
+[package]
+name = "gositter-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+gositter = { path = ".." }
+gositter-grammars = { path = "../grammars" }
+gositter-treedump = { path = "../treedump" }
+
+# Not part of the root workspace: only this crate may depend on libfuzzer-sys (README, Differences).
+[workspace]
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "budget"
+path = "fuzz_targets/budget.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "advance_run"
+path = "fuzz_targets/advance_run.rs"
+test = false
+doc = false
+bench = false

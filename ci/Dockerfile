@@ -163,6 +163,19 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
     && cp target/release/examples/gsdump /usr/local/bin/gsdump-rs
 RUN sh ci/parity.sh /out/gsdump gsdump-rs /extra full
 
+# Fuzzing (.github/workflows/fuzz.yml, plan Task 13), as dobbo-ca/deflate-rs: nightly and
+# cargo-fuzz, with the targets built into the image. fuzz/ is its own workspace (README,
+# Differences). The workflow runs the image with `docker create`/`start`, so a BuildKit cache hit
+# cannot skip the fuzzing. The seeds are the regress sources, without the goldens.
+FROM toolchain AS fuzz-tools
+RUN rustup toolchain install nightly --profile minimal \
+    && cargo install cargo-fuzz --locked --version 0.13.1
+
+FROM fuzz-tools AS fuzz
+COPY . .
+RUN find testdata/regress -name '*.dump.gz' -delete
+RUN cargo +nightly fuzz build
+
 # qemu-user and the aarch64 cross toolchain, for the arm64 stage.
 FROM toolchain AS qemu-tools
 RUN apt-get update && apt-get install -y --no-install-recommends qemu-user gcc-aarch64-linux-gnu libc6-dev-arm64-cross \

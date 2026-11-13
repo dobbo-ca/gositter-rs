@@ -29,7 +29,7 @@ mod tree_cursor;
 
 pub use api::*;
 #[doc(hidden)]
-pub use export::SummaryCheck;
+pub use export::{SummaryCheck, advance_run_matches_reference};
 pub use node::Node;
 pub use parser::{LanguageError, Parser};
 #[doc(hidden)]

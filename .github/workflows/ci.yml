@@ -2,11 +2,12 @@ name: ci
 on: { pull_request: {}, push: { branches: [main] }, workflow_dispatch: {} }
 permissions:
   contents: read
-# Each push to main gets its own group and always finishes; a PR run cancels its older run
-# (as graphify-rs PR #17). One group per ref with cancel-in-progress for every event cancelled the
-# previous main run on each merge, and GitHub also replaces a pending run in the same group.
+# One group per ref (as graphify-rs PR #28). Main pushes share a group without cancel: a started
+# main run always finishes, and GitHub keeps only the newest pending one, so the main backlog on
+# the shared ARC runners cannot grow. A PR run cancels its older run. A bead closes on any green
+# main run at or after its commit.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   # The checks run inside ci/Dockerfile on the in-cluster BuildKit (pattern from dobbo-ca/deflate-rs).

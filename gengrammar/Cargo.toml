@@ -1,0 +1,13 @@
+[package]
+name = "gengrammar"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+description = "Port of gositter cmd/gengrammar: reads a tree-sitter parser.c and writes gositter-rs tables."
+publish = false
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

@@ -9,7 +9,10 @@ use std::process::exit;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use gengrammar::blob::{check_language, write_blob};
 use gengrammar::lock::{LockEntry, check_sum, parse_lock};
+use gengrammar::parse::parse_grammar;
+use gengrammar::rust::{header, mod_rs};
 
 struct Args {
     lock: String,
@@ -67,10 +70,20 @@ fn args() -> Args {
 fn generate(l: &LockEntry, src: &Path, out: &Path, update: bool) -> Result<String, String> {
     let path = l.parser_c(src);
     let text = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    check_sum(&text, &l.sum, update)?;
-    let _ = out;
-    // ponytail: parser and emitter come in Tasks 3 and 4 of the grammars plan.
-    Err("parser.c reader not ported yet".into())
+    let sum = check_sum(&text, &l.sum, update)?;
+    let src = std::str::from_utf8(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut g = parse_grammar(src).map_err(|e| e.0)?;
+    let info = check_language(&mut g).map_err(|e| e.0)?;
+    let blob = write_blob(&g, &info);
+    let rs = mod_rs(&header(l, &sum), &g, &info, &blob);
+    // Both outputs exist in memory before the first write, so a failure leaves the old files.
+    let dir = out.join(&l.pkg);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    for (name, bytes) in [("tables.bin", &blob.bytes[..]), ("mod.rs", rs.as_bytes())] {
+        let p = dir.join(name);
+        std::fs::write(&p, bytes).map_err(|e| format!("{}: {e}", p.display()))?;
+    }
+    Ok(sum)
 }
 
 fn main() {

@@ -233,5 +233,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (39504, 48);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", "hash_bang_line", "return", ";", "=", ",", "::", "break_statement", "goto", "do", "end", "while", "repeat", "until", "if", "then", "elseif", "else", "for", "in", "function", "local", "global", ".", ":", "*", "<", ">", "nil", "false", "true", "number", "\"", "'", "_doublequote_string_content_token1", "_singlequote_string_content_token1", "escape_sequence", "vararg_expression", "(", ")", "[", "]", "{", "}", "or", "and", "<=", "==", "~=", ">=", "|", "~", "&", "<<", ">>", "+", "-", "/", "//", "%", "..", "^", "not", "#", "--", "comment_content", "[[", "comment_content", "]]", "[[", "string_content", "]]", "chunk", "block", "statement", "return_statement", "empty_statement", "assignment_statement", "variable_list", "expression_list", "label_statement", "goto_statement", "do_statement", "while_statement", "repeat_statement", "if_statement", "elseif_statement", "else_statement", "for_statement", "for_generic_clause", "for_numeric_clause", "variable_list", "declaration", "function_declaration", "function_declaration", "function_declaration", "_function_name", "_function_name_prefix_expression", "dot_index_expression", "method_index_expression", "variable_declaration", "variable_declaration", "assignment_statement", "variable_list", "implicit_variable_declaration", "attribute", "expression_list", "expression", "string", "_quote_string", "_doublequote_string_content", "_singlequote_string_content", "_block_string", "function_definition", "_function_body", "parameters", "_parameter_list", "_vararg_parameter", "_prefix_expression", "variable", "bracket_index_expression", "dot_index_expression", "function_call", "method_index_expression", "arguments", "parenthesized_expression", "table_constructor", "_field_list", "_field_sep", "field", "binary_expression", "unary_expression", "comment", "_contextual_keyword", "chunk_repeat1", "_variable_assignment_varlist_repeat1", "_variable_assignment_explist_repeat1", "if_statement_repeat1", "_name_list_repeat1", "_att_name_list_repeat1", "_expression_list_repeat1", "_field_list_repeat1"];
 pub static FIELD_NAMES: &[&str] = &["", "alternative", "arguments", "attribute", "body", "clause", "condition", "consequence", "content", "end", "field", "global_declaration", "left", "local_declaration", "method", "name", "operand", "operator", "parameters", "right", "start", "step", "table", "value"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "lua",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 5, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

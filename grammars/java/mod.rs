@@ -415,5 +415,62 @@ pub const TS_PARSE_ACTIONS: (usize, usize) = (346904, 3432);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", "decimal_integer_literal", "hex_integer_literal", "octal_integer_literal", "binary_integer_literal", "decimal_floating_point_literal", "hex_floating_point_literal", "true", "false", "character_literal", "\"", "\"\"\"", "string_fragment", "_multiline_string_fragment_token1", "_multiline_string_fragment_token2", "\\{", "}", "_escape_sequence_token1", "escape_sequence", "null_literal", "(", ")", "&", "=", "+=", "-=", "*=", "/=", "&=", "|=", "^=", "%=", "<<=", ">>=", ">>>=", ">", "<", ">=", "<=", "==", "!=", "&&", "||", "+", "-", "*", "/", "|", "^", "%", "<<", ">>", ">>>", "instanceof", "final", "->", ",", "?", ":", "!", "~", "++", "--", "new", "[", "]", ".", "class", "::", "extends", "switch", "{", "case", "default", "underscore_pattern", "when", ";", "assert", "do", "while", "break", "continue", "return", "yield", "synchronized", "throw", "try", "catch", "finally", "if", "else", "for", "@", "open", "module", "requires", "transitive", "static", "exports", "to", "opens", "uses", "provides", "with", "package", "import", "enum", "public", "protected", "private", "abstract", "strictfp", "native", "transient", "volatile", "sealed", "non-sealed", "implements", "permits", "record", "@interface", "interface", "byte", "short", "int", "long", "char", "float", "double", "boolean_type", "void_type", "...", "throws", "this", "super", "line_comment", "block_comment", "program", "_toplevel_statement", "_literal", "string_literal", "_string_literal", "_multiline_string_literal", "multiline_string_fragment", "string_interpolation", "_escape_sequence", "expression", "cast_expression", "assignment_expression", "binary_expression", "instanceof_expression", "lambda_expression", "inferred_parameters", "ternary_expression", "unary_expression", "update_expression", "primary_expression", "array_creation_expression", "dimensions_expr", "parenthesized_expression", "class_literal", "object_creation_expression", "_unqualified_object_creation_expression", "field_access", "template_expression", "array_access", "method_invocation", "argument_list", "method_reference", "type_arguments", "wildcard", "_wildcard_bounds", "dimensions", "switch_expression", "switch_block", "switch_block_statement_group", "switch_rule", "switch_label", "pattern", "type_pattern", "record_pattern", "record_pattern_body", "record_pattern_component", "guard", "statement", "block", "expression_statement", "labeled_statement", "assert_statement", "do_statement", "break_statement", "continue_statement", "return_statement", "yield_statement", "synchronized_statement", "throw_statement", "try_statement", "catch_clause", "catch_formal_parameter", "catch_type", "finally_clause", "try_with_resources_statement", "resource_specification", "resource", "if_statement", "while_statement", "for_statement", "enhanced_for_statement", "_annotation", "marker_annotation", "annotation", "annotation_argument_list", "element_value_pair", "_element_value", "element_value_array_initializer", "declaration", "module_declaration", "module_body", "module_directive", "requires_module_directive", "requires_modifier", "exports_module_directive", "opens_module_directive", "uses_module_directive", "provides_module_directive", "package_declaration", "import_declaration", "asterisk", "enum_declaration", "enum_body", "enum_body_declarations", "enum_constant", "class_declaration", "modifiers", "type_parameters", "type_parameter", "type_bound", "superclass", "super_interfaces", "type_list", "permits", "class_body", "static_initializer", "constructor_declaration", "_constructor_declarator", "constructor_body", "explicit_constructor_invocation", "scoped_identifier", "field_declaration", "record_declaration", "annotation_type_declaration", "annotation_type_body", "annotation_type_element_declaration", "_default_value", "interface_declaration", "extends_interfaces", "interface_body", "constant_declaration", "_variable_declarator_list", "variable_declarator", "_variable_declarator_id", "array_initializer", "_type", "_unannotated_type", "annotated_type", "scoped_type_identifier", "generic_type", "array_type", "integral_type", "floating_point_type", "_method_header", "_method_declarator", "formal_parameters", "formal_parameter", "receiver_parameter", "spread_parameter", "throws", "local_variable_declaration", "method_declaration", "compact_constructor_declaration", "_reserved_identifier", "program_repeat1", "_string_literal_repeat1", "_multiline_string_literal_repeat1", "cast_expression_repeat1", "inferred_parameters_repeat1", "array_creation_expression_repeat1", "array_creation_expression_repeat2", "argument_list_repeat1", "type_arguments_repeat1", "dimensions_repeat1", "switch_block_repeat1", "switch_block_repeat2", "switch_block_statement_group_repeat1", "switch_block_statement_group_repeat2", "record_pattern_body_repeat1", "try_statement_repeat1", "catch_type_repeat1", "resource_specification_repeat1", "for_statement_repeat1", "for_statement_repeat2", "annotation_argument_list_repeat1", "element_value_array_initializer_repeat1", "module_body_repeat1", "requires_module_directive_repeat1", "exports_module_directive_repeat1", "provides_module_directive_repeat1", "enum_body_repeat1", "enum_body_declarations_repeat1", "modifiers_repeat1", "type_parameters_repeat1", "type_bound_repeat1", "type_list_repeat1", "annotation_type_body_repeat1", "interface_body_repeat1", "_variable_declarator_list_repeat1", "array_initializer_repeat1", "formal_parameters_repeat1", "receiver_parameter_repeat1", "type_identifier"];
 pub static FIELD_NAMES: &[&str] = &["", "alternative", "arguments", "array", "body", "condition", "consequence", "constructor", "declarator", "dimensions", "element", "field", "index", "init", "interfaces", "key", "left", "modifiers", "module", "modules", "name", "object", "operand", "operator", "package", "parameters", "pattern", "permits", "provided", "provider", "resources", "right", "scope", "superclass", "template_argument", "template_processor", "type", "type_arguments", "type_parameters", "update", "value"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::EMPTY,
+        symbol_map: gositter::U16s::EMPTY,
+        create: None,
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "java",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::EMPTY,
+    supertype_map_slices: gositter::MapSlices::EMPTY,
+    supertype_map_entries: gositter::U16s::EMPTY,
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 0, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

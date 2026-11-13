@@ -344,5 +344,62 @@ pub const TS_PARSE_ACTIONS: (usize, usize) = (644088, 3236);
 pub static SYMBOL_NAMES: &[&str] = &["end", "_identifier", ",", "pub", "test", "comptime", ":", "=", "export", "extern", "threadlocal", ";", "*=", "*%=", "*|=", "/=", "%=", "+=", "+%=", "+|=", "-=", "-%=", "-|=", "<<=", "<<|=", ">>=", "&=", "^=", "|=", "const", "var", "inline", "noinline", "fn", "(", ")", "noalias", "...", "usingnamespace", "{", "}", "packed", "struct", "opaque", "enum", "union", "error", "nosuspend", "suspend", "defer", "errdefer", "if", "else", "for", "..", "while", "|", "*", "align", "addrspace", "linksection", "callconv", "asm", "volatile", "[", "]", "->", "!", "~", "-", "-%", "&", "or", "and", "==", "!=", ">", ">=", "<=", "<", "^", "orelse", "<<", ">>", "<<|", "+", "++", "+%", "+|", "-|", "/", "%", "**", "*%", "*|", "||", "async", "await", "continue", "resume", "return", "break", "try", "catch", "switch", "=>", "anyframe", "unreachable", "undefined", "null", "?", "allowzero", "c", ".", ".*", ".?", "\"", "string_content", "multiline_string_token1", "escape_sequence", "'", "character_content", "integer", "float", "true", "false", "bool", "f16", "f32", "f64", "f128", "void", "type", "anyerror", "anyopaque", "anytype", "noreturn", "isize", "usize", "comptime_int", "comptime_float", "c_short", "c_ushort", "c_int", "c_uint", "c_long", "c_ulong", "c_longlong", "c_ulonglong", "c_longdouble", "builtin_type_token1", "builtin_identifier", "@", "comment", "source_file", "_container_members", "test_declaration", "comptime_declaration", "container_field", "variable_declaration", "variable_declaration", "_variable_declaration_header", "function_declaration", "_function_prototype", "parameters", "parameter", "using_namespace_declaration", "block", "struct_declaration", "opaque_declaration", "enum_declaration", "union_declaration", "error_set_declaration", "statement", "comptime_statement", "nosuspend_statement", "suspend_statement", "defer_statement", "errdefer_statement", "_block_expr_statement", "block_expression", "labeled_statement", "expression_statement", "if_statement", "_if_prefix", "else_clause", "for_statement", "_for_prefix", "while_statement", "_while_prefix", "_conditional_body", "payload", "byte_alignment", "address_space", "link_section", "calling_convention", "expression", "asm_expression", "asm_output", "asm_output_item", "asm_input", "asm_input_item", "asm_clobbers", "if_expression", "for_expression", "while_expression", "assignment_expression", "unary_expression", "binary_expression", "comptime_expression", "async_expression", "await_expression", "nosuspend_expression", "continue_expression", "resume_expression", "return_expression", "break_expression", "try_expression", "catch_expression", "switch_expression", "switch_case", "_switch_case_exp", "type_expression", "primary_type_expression", "nullable_type", "anyframe_type", "slice_type", "pointer_type", "array_type", "error_union_type", "field_expression", "index_expression", "dereference_expression", "null_coercion_expression", "range_expression", "call_expression", "anonymous_struct_initializer", "struct_initializer", "initializer_list", "field_initializer", "labeled_type_expression", "comptime_type_expression", "if_type_expression", "parenthesized_expression", "block_label", "break_label", "arguments", "builtin_function", "string", "multiline_string", "character", "boolean", "builtin_type", "error_type", "identifier", "_container_members_repeat1", "_variable_declaration_expression_statement_repeat1", "parameters_repeat1", "block_repeat1", "error_set_declaration_repeat1", "_for_prefix_repeat1", "payload_repeat1", "asm_output_repeat1", "asm_input_repeat1", "asm_clobbers_repeat1", "switch_expression_repeat1", "_switch_case_exp_repeat1", "slice_type_repeat1", "pointer_type_repeat1", "call_expression_repeat1", "initializer_list_repeat1", "string_repeat1", "multiline_string_repeat1", "function_signature"];
 pub static FIELD_NAMES: &[&str] = &["", "alternative", "argument", "body", "condition", "error", "function", "index", "left", "member", "name", "object", "ok", "operator", "right", "sentinel", "type"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::EMPTY,
+        symbol_map: gositter::U16s::EMPTY,
+        create: None,
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "zig",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::EMPTY,
+    supertype_map_slices: gositter::MapSlices::EMPTY,
+    supertype_map_entries: gositter::U16s::EMPTY,
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 0, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

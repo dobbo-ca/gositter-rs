@@ -380,5 +380,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (417264, 228);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", ";", "import", ".", "from", "__future__", "(", ")", ",", "as", "*", "print", ">>", "assert", ":=", "return", "del", "raise", "pass", "break", "continue", "if", ":", "elif", "else", "match", "case", "async", "for", "in", "while", "try", "except", "*", "finally", "with", "def", "->", "**", "global", "nonlocal", "exec", "type", "=", "class", "[", "]", "@", "-", "_", "|", "{", "}", "+", "not", "and", "or", "/", "%", "//", "&", "^", "<<", "~", "is", "<", "<=", "==", "!=", ">=", ">", "<>", "lambda", "+=", "-=", "*=", "/=", "@=", "//=", "%=", "**=", ">>=", "<<=", "&=", "^=", "|=", "yield", "ellipsis", "escape_sequence", "\\", "format_specifier_token1", "type_conversion", "integer", "float", "await", "true", "false", "none", "comment", "line_continuation", "_newline", "_indent", "_dedent", "string_start", "_string_content", "escape_interpolation", "string_end", "module", "_statement", "_simple_statements", "import_statement", "import_prefix", "relative_import", "future_import_statement", "import_from_statement", "_import_list", "aliased_import", "wildcard_import", "print_statement", "chevron", "assert_statement", "expression_statement", "named_expression", "_named_expression_lhs", "return_statement", "delete_statement", "raise_statement", "pass_statement", "break_statement", "continue_statement", "if_statement", "elif_clause", "else_clause", "match_statement", "block", "case_clause", "for_statement", "while_statement", "try_statement", "except_clause", "finally_clause", "with_statement", "with_clause", "with_item", "function_definition", "parameters", "lambda_parameters", "list_splat", "dictionary_splat", "global_statement", "nonlocal_statement", "exec_statement", "type_alias_statement", "class_definition", "type_parameter", "parenthesized_list_splat", "argument_list", "decorated_definition", "decorator", "block", "expression_list", "dotted_name", "case_pattern", "_simple_pattern", "as_pattern", "union_pattern", "list_pattern", "tuple_pattern", "dict_pattern", "_key_value_pattern", "keyword_pattern", "splat_pattern", "class_pattern", "complex_pattern", "_parameters", "_patterns", "parameter", "pattern", "tuple_pattern", "list_pattern", "default_parameter", "typed_default_parameter", "list_splat_pattern", "dictionary_splat_pattern", "as_pattern", "_expression_within_for_in_clause", "expression", "primary_expression", "not_operator", "boolean_operator", "binary_operator", "unary_operator", "not in", "is not", "comparison_operator", "lambda", "lambda", "assignment", "augmented_assignment", "pattern_list", "_right_hand_side", "yield", "attribute", "subscript", "slice", "call", "typed_parameter", "type", "splat_type", "generic_type", "union_type", "constrained_type", "member_type", "keyword_argument", "list", "set", "tuple", "dictionary", "pair", "list_comprehension", "dictionary_comprehension", "set_comprehension", "generator_expression", "_comprehension_clauses", "parenthesized_expression", "_collection_elements", "for_in_clause", "if_clause", "conditional_expression", "concatenated_string", "string", "string_content", "interpolation", "_f_expression", "_not_escape_sequence", "format_specifier", "await", "positional_separator", "keyword_separator", "module_repeat1", "_simple_statements_repeat1", "import_prefix_repeat1", "_import_list_repeat1", "print_statement_repeat1", "assert_statement_repeat1", "if_statement_repeat1", "match_statement_repeat1", "_match_block_repeat1", "case_clause_repeat1", "try_statement_repeat1", "except_clause_repeat1", "with_clause_repeat1", "global_statement_repeat1", "type_parameter_repeat1", "argument_list_repeat1", "decorated_definition_repeat1", "dotted_name_repeat1", "union_pattern_repeat1", "dict_pattern_repeat1", "_parameters_repeat1", "_patterns_repeat1", "comparison_operator_repeat1", "subscript_repeat1", "dictionary_repeat1", "_comprehension_clauses_repeat1", "_collection_elements_repeat1", "for_in_clause_repeat1", "concatenated_string_repeat1", "string_repeat1", "string_content_repeat1", "format_specifier_repeat1", "as_pattern_target", "format_expression"];
 pub static FIELD_NAMES: &[&str] = &["", "alias", "alternative", "argument", "arguments", "attribute", "body", "cause", "code", "condition", "consequence", "definition", "expression", "format_specifier", "function", "guard", "key", "left", "module_name", "name", "object", "operator", "operators", "parameters", "return_type", "right", "subject", "subscript", "superclasses", "type", "type_conversion", "type_parameters", "value"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "python",
+    reserved_words: gositter::U16s::at(TABLES, TS_RESERVED_WORDS.0, TS_RESERVED_WORDS.1),
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 25, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

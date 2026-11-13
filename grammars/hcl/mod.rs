@@ -189,5 +189,60 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (67520, 96);
 pub static SYMBOL_NAMES: &[&str] = &["end", "=", "{", "}", "identifier", "(", ")", "numeric_lit_token1", "numeric_lit_token2", "true", "false", "null_lit", ",", "[", "]", ":", ".", "legacy_index_token1", ".*", "[*]", "=>", "for", "in", "if", "ellipsis", "?", "-", "!", "*", "/", "%", "+", ">", ">=", "<", "<=", "==", "!=", "&&", "||", "<<", "<<-", "strip_marker", "endfor", "else", "endif", "comment", "_whitespace", "quoted_template_start", "quoted_template_end", "_template_literal_chunk", "template_interpolation_start", "template_interpolation_end", "template_directive_start", "template_directive_end", "heredoc_identifier", "config_file", "body", "attribute", "block", "block_start", "block_end", "expression", "_expr_term", "literal_value", "numeric_lit", "bool_lit", "string_lit", "collection_value", "_comma", "tuple", "tuple_start", "tuple_end", "_tuple_elems", "object", "object_start", "object_end", "_object_elems", "object_elem", "index", "new_index", "legacy_index", "get_attr", "splat", "attr_splat", "full_splat", "for_expr", "for_tuple_expr", "for_object_expr", "for_intro", "for_cond", "variable_expr", "function_call", "_function_call_start", "_function_call_end", "function_arguments", "conditional", "operation", "unary_operation", "binary_operation", "template_expr", "quoted_template", "heredoc_template", "heredoc_start", "_template", "template_literal", "template_interpolation", "template_directive", "template_for", "template_for_start", "template_for_end", "template_if", "template_if_intro", "template_else_intro", "template_if_end", "body_repeat1", "block_repeat1", "_tuple_elems_repeat1", "_object_elems_repeat1", "attr_splat_repeat1", "template_literal_repeat1"];
 pub static FIELD_NAMES: &[&str] = &["", "key", "val"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: None,
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "hcl",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::EMPTY,
+    supertype_map_slices: gositter::MapSlices::EMPTY,
+    supertype_map_entries: gositter::U16s::EMPTY,
+    metadata: gositter::LanguageMetadata { major_version: 1, minor_version: 2, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

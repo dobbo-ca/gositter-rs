@@ -366,5 +366,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (3288104, 451);
 pub static SYMBOL_NAMES: &[&str] = &["end", "identifier", "@", "file", ":", "[", "]", "package", ";", "import", ".", "*", "as", "class", "fun", "interface", "object", "val", "var", "=", "typealias", "companion", "init", "constructor", "this", "super", "<", ",", ">", "(", ")", "where", "by", "get", "set", "{", "}", "for", "in", "while", "do", "enum", "sealed", "annotation", "data", "inner", "value", "tailrec", "operator", "infix", "inline", "external", "suspend", "const", "public", "private", "protected", "internal", "abstract", "final", "open", "override", "lateinit", "vararg", "noinline", "crossinline", "reification_modifier", "expect", "actual", "field", "property", "receiver", "param", "setparam", "delegate", "dynamic", "?", "&", "->", "+=", "-=", "*=", "/=", "%=", "++", "--", "+", "-", "!", "!!", "/", "%", "||", "&&", "!=", "!==", "==", "===", ">=", "<=", "?:", "!in", "is", "as?", "..", "..<", "this@", "super@", "@", "if", "else", "when", "try", "catch", "finally", "return", "return@", "throw", "::", "\"", "string_content", "string_content", "$", "\"\"\"", "\"\"\"\"", "${", "'", "character_literal_token1", "escape_sequence", "number_literal", "float_literal", "out", "label", "shebang", "line_comment", "_semi", "_class_member_semi", "block_comment", "!is", "in", "?.", "string_content", "source_file", "file_annotation", "package_header", "import", "declaration", "class_declaration", "object_declaration", "property_declaration", "type_alias", "companion_object", "anonymous_initializer", "secondary_constructor", "constructor_delegation_call", "type_parameters", "type_parameter", "primary_constructor", "class_parameters", "class_parameter", "type_constraints", "type_constraint", "constructor_invocation", "function_declaration", "function_value_parameters", "parameter", "delegation_specifiers", "delegation_specifier", "variable_declaration", "multi_variable_declaration", "property_delegate", "explicit_delegation", "getter", "setter", "function_body", "block", "for_statement", "while_statement", "do_while_statement", "class_body", "class_member_declaration", "enum_class_body", "enum_entry", "value_arguments", "value_argument", "statement", "modifiers", "class_modifier", "function_modifier", "property_modifier", "visibility_modifier", "inheritance_modifier", "member_modifier", "parameter_modifiers", "parameter_modifier", "platform_modifier", "type_modifiers", "annotation", "use_site_target", "_unescaped_annotation", "type", "user_type", "_simple_user_type", "nullable_type", "non_nullable_type", "_receiver_type", "type_arguments", "type_projection", "function_type", "function_type_parameters", "parenthesized_type", "assignment", "expression", "primary_expression", "unary_expression", "annotated_expression", "labeled_expression", "binary_expression", "in_expression", "is_expression", "as_expression", "spread_expression", "range_expression", "infix_expression", "call_expression", "annotated_lambda", "lambda_literal", "lambda_parameters", "_lambda_parameter", "anonymous_function", "index_expression", "this_expression", "super_expression", "if_expression", "parenthesized_expression", "collection_literal", "when_expression", "when_subject", "when_entry", "_when_condition", "range_test", "type_test", "try_expression", "catch_block", "finally_block", "return_expression", "throw_expression", "callable_reference", "navigation_expression", "object_literal", "string_literal", "multiline_string_literal", "interpolation", "character_literal", "variance_modifier", "type_parameter_modifiers", "qualified_identifier", "_reserved_identifier", "source_file_repeat1", "source_file_repeat2", "source_file_repeat3", "file_annotation_repeat1", "type_parameters_repeat1", "class_parameters_repeat1", "type_constraints_repeat1", "function_value_parameters_repeat1", "delegation_specifiers_repeat1", "delegation_specifier_repeat1", "multi_variable_declaration_repeat1", "class_body_repeat1", "enum_class_body_repeat1", "value_arguments_repeat1", "_statements_repeat1", "modifiers_repeat1", "parameter_modifiers_repeat1", "type_modifiers_repeat1", "user_type_repeat1", "type_arguments_repeat1", "type_projection_repeat1", "function_type_parameters_repeat1", "lambda_parameters_repeat1", "index_expression_repeat1", "when_expression_repeat1", "when_entry_repeat1", "try_expression_repeat1", "string_literal_repeat1", "multiline_string_literal_repeat1", "type_parameter_modifiers_repeat1", "qualified_identifier_repeat1"];
 pub static FIELD_NAMES: &[&str] = &["", "argument", "condition", "label", "left", "name", "operator", "right", "type"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "kotlin",
+    reserved_words: gositter::U16s::EMPTY,
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::EMPTY,
+    supertype_map_slices: gositter::MapSlices::EMPTY,
+    supertype_map_entries: gositter::U16s::EMPTY,
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 0, patch_version: 0 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

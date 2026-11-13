@@ -537,5 +537,64 @@ pub const TS_EXTERNAL_SCANNER_STATES: (usize, usize) = (1000416, 180);
 pub static SYMBOL_NAMES: &[&str] = &["end", "name", "php_tag", "php_end_tag", "text_token1", "text_token2", ";", "&", "static", ",", "=", "global", "namespace", "use", "as", "function", "const", "\\", "{", "}", "trait", "interface", "extends", "enum", ":", "string", "int", "case", "class", "final", "abstract", "readonly", "implements", "=>", "var_modifier", "insteadof", "public", "protected", "private", "(", ")", "(", ")", "fn", "...", "?", "bottom_type", "|", "array", "bool", "primitive_type_token1", "primitive_type_token2", "float", "primitive_type_token3", "primitive_type_token4", "null", "object", "primitive_type_token5", "primitive_type_token6", "cast_type_token1", "cast_type_token2", "cast_type_token3", "cast_type_token4", "cast_type_token5", "cast_type_token6", "cast_type_token7", "cast_type_token8", "cast_type_token9", "cast_type_token10", "cast_type_token11", "cast_type_token12", "echo", "exit", "unset", "declare", "enddeclare", "ticks", "encoding", "strict_types", "float", "try", "catch", "finally", "goto", "continue", "break", "integer", "return", "throw", "while", "endwhile", "do", "for", "endfor", "foreach", "endforeach", "if", "endif", "elseif", "else", "match", "default", "switch", "endswitch", "+", "-", "~", "!", "@", "clone", "::", "print", "new", "--", "++", "**=", "*=", "/=", "%=", "+=", "-=", ".=", "<<=", ">>=", "&=", "^=", "|=", "??=", "->", "?->", "list", "[", "]", "self", "parent", "_argument_name_token1", "_argument_name_token2", "#[", "escape_sequence", "string_content", "encapsed_string_token1", "\"", "string_token1", "'", "escape_sequence", "string_content_token1", "<<<", "\"", "_new_line", "'", "`", "$", "yield", "yield from", "instanceof", "??", "**", "and", "or", "xor", "||", "&&", "^", "==", "!=", "<>", "===", "!==", "<", ">", "<=", ">=", "<=>", "|>", ".", "<<", ">>", "*", "/", "%", "include", "include_once", "require", "require_once", "comment", "_automatic_semicolon", "string_content", "string_content", "string_content", "string_content", "string_content", "string_content", "_eof", "heredoc_start", "heredoc_end", "nowdoc_string", "sentinel_error", "program", "text_interpolation", "text", "statement", "empty_statement", "reference_modifier", "function_static_declaration", "static_variable_declaration", "global_declaration", "namespace_definition", "namespace_use_declaration", "namespace_use_clause", "qualified_name", "relative_name", "_name", "namespace_name", "_namespace_use_group", "namespace_use_group", "trait_declaration", "interface_declaration", "base_clause", "enum_declaration", "enum_declaration_list", "_enum_member_declaration", "enum_case", "class_declaration", "declaration_list", "final_modifier", "abstract_modifier", "readonly_modifier", "class_interface_clause", "_member_declaration", "const_declaration", "const_declaration", "property_declaration", "_modifier", "property_element", "property_hook_list", "property_hook", "_property_hook_body", "method_declaration", "static_modifier", "use_declaration", "use_list", "use_instead_of_clause", "use_as_clause", "visibility_modifier", "function_definition", "anonymous_function", "anonymous_function_use_clause", "_anonymous_function_header", "_arrow_function_header", "arrow_function", "formal_parameters", "property_promotion_parameter", "simple_parameter", "variadic_parameter", "type", "_types", "named_type", "optional_type", "union_type", "intersection_type", "disjunctive_normal_form_type", "primitive_type", "cast_type", "_return_type", "const_element", "const_element", "echo_statement", "exit_statement", "unset_statement", "declare_statement", "declare_directive", "literal", "try_statement", "catch_clause", "type_list", "finally_clause", "goto_statement", "continue_statement", "break_statement", "return_statement", "throw_expression", "while_statement", "do_statement", "for_statement", "_expressions", "sequence_expression", "foreach_statement", "pair", "_foreach_value", "if_statement", "colon_block", "else_if_clause", "else_clause", "else_if_clause", "else_clause", "match_expression", "match_block", "match_condition_list", "match_conditional_expression", "match_default_expression", "switch_statement", "switch_block", "case_statement", "default_statement", "compound_statement", "named_label_statement", "expression_statement", "expression", "_unary_expression", "unary_op_expression", "error_suppression_expression", "clone_expression", "primary_expression", "parenthesized_expression", "class_constant_access_expression", "print_intrinsic", "object_creation_expression", "_new_non_dereferencable_expression", "_new_dereferencable_expression", "_class_name_reference", "anonymous_class", "update_expression", "cast_expression", "cast_expression", "assignment_expression", "reference_assignment_expression", "conditional_expression", "augmented_assignment_expression", "member_access_expression", "member_access_expression", "nullsafe_member_access_expression", "nullsafe_member_access_expression", "scoped_property_access_expression", "scoped_property_access_expression", "list_literal", "_list_destructing", "_array_destructing", "_array_destructing_element", "function_call_expression", "_callable_expression", "scoped_call_expression", "_scope_resolution_qualifier", "relative_scope", "variadic_placeholder", "arguments", "argument", "_argument_name", "member_call_expression", "nullsafe_member_call_expression", "variadic_unpacking", "_member_name", "subscript_expression", "subscript_expression", "_dereferencable_expression", "_dereferencable_scalar", "array_creation_expression", "attribute_group", "attribute_list", "attribute", "_complex_string_part", "member_access_expression", "unary_op_expression", "_simple_string_array_access_argument", "subscript_expression", "_simple_string_part", "_interpolated_string_body", "_interpolated_string_body_heredoc", "encapsed_string", "string", "string_content", "heredoc_body", "heredoc", "nowdoc_body", "nowdoc", "_interpolated_execution_operator_body", "shell_command_expression", "boolean", "null", "_string", "dynamic_variable_name", "_simple_variable", "_new_variable", "_callable_variable", "variable_name", "by_ref", "yield_expression", "array_element_initializer", "binary_expression", "include_expression", "include_once_expression", "require_expression", "require_once_expression", "_semicolon", "program_repeat1", "text_repeat1", "function_static_declaration_repeat1", "global_declaration_repeat1", "namespace_use_declaration_repeat1", "namespace_name_repeat1", "base_clause_repeat1", "enum_declaration_list_repeat1", "class_declaration_repeat1", "declaration_list_repeat1", "const_declaration_repeat1", "_class_const_declaration_repeat1", "property_declaration_repeat1", "property_hook_list_repeat1", "use_list_repeat1", "anonymous_function_use_clause_repeat1", "formal_parameters_repeat1", "union_type_repeat1", "intersection_type_repeat1", "disjunctive_normal_form_type_repeat1", "unset_statement_repeat1", "try_statement_repeat1", "type_list_repeat1", "if_statement_repeat1", "if_statement_repeat2", "match_block_repeat1", "match_condition_list_repeat1", "switch_block_repeat1", "_list_destructing_repeat1", "_array_destructing_repeat1", "arguments_repeat1", "array_creation_expression_repeat1", "attribute_group_repeat1", "attribute_list_repeat1", "string_repeat1", "string_content_repeat1", "heredoc_body_repeat1", "nowdoc_body_repeat1", "operation"];
 pub static FIELD_NAMES: &[&str] = &["", "alias", "alternative", "argument", "arguments", "attributes", "body", "condition", "conditional_expressions", "default_value", "end_tag", "final", "function", "identifier", "initialize", "left", "name", "object", "operator", "parameters", "prefix", "readonly", "reference_modifier", "return_expression", "return_type", "right", "scope", "static_modifier", "type", "update", "value", "visibility"];
 
-#[allow(dead_code)] // read by language()
-static TABLES: &[u8] = include_bytes!("tables.bin");
+const TABLES: &[u8] = include_bytes!("tables.bin");
+
+#[rustfmt::skip]
+mod lex;
+#[rustfmt::skip]
+mod scanner;
+
+fn lex_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex(l, state)
+}
+
+fn lex_keywords_main(l: &mut gositter::Lexer<'_>, state: u16) -> bool {
+    lex::lex_keywords(l, state)
+}
+
+static LANGUAGE: gositter::Language = gositter::Language::new(gositter::LanguageTables {
+    abi_version: COUNTS.abi_version,
+    symbol_count: COUNTS.symbol_count,
+    alias_count: COUNTS.alias_count,
+    token_count: COUNTS.token_count,
+    external_token_count: COUNTS.external_token_count,
+    state_count: COUNTS.state_count,
+    large_state_count: COUNTS.large_state_count,
+    production_id_count: COUNTS.production_id_count,
+    field_count: COUNTS.field_count,
+    max_alias_sequence_length: COUNTS.max_alias_sequence_length,
+    parse_table: gositter::U16s::at(TABLES, TS_PARSE_TABLE.0, TS_PARSE_TABLE.1),
+    small_parse_table: gositter::U16s::at(TABLES, TS_SMALL_PARSE_TABLE.0, TS_SMALL_PARSE_TABLE.1),
+    small_parse_table_map: gositter::U32s::at(TABLES, TS_SMALL_PARSE_TABLE_MAP.0, TS_SMALL_PARSE_TABLE_MAP.1),
+    parse_actions: gositter::ParseActions::at(TABLES, TS_PARSE_ACTIONS.0, TS_PARSE_ACTIONS.1),
+    symbol_names: SYMBOL_NAMES,
+    field_names: FIELD_NAMES,
+    field_map_slices: gositter::MapSlices::at(TABLES, TS_FIELD_MAP_SLICES.0, TS_FIELD_MAP_SLICES.1),
+    field_map_entries: gositter::FieldMapEntries::at(TABLES, TS_FIELD_MAP_ENTRIES.0, TS_FIELD_MAP_ENTRIES.1),
+    symbol_metadata: gositter::SymbolMetadatas::at(TABLES, TS_SYMBOL_METADATA.0, TS_SYMBOL_METADATA.1),
+    public_symbol_map: gositter::U16s::at(TABLES, TS_SYMBOL_MAP.0, TS_SYMBOL_MAP.1),
+    alias_map: gositter::U16s::at(TABLES, TS_NON_TERMINAL_ALIAS_MAP.0, TS_NON_TERMINAL_ALIAS_MAP.1),
+    alias_sequences: gositter::U16s::at(TABLES, TS_ALIAS_SEQUENCES.0, TS_ALIAS_SEQUENCES.1),
+    lex_modes: gositter::LexModes::at(TABLES, TS_LEX_MODES.0, TS_LEX_MODES.1),
+    lex_fn: lex_main,
+    keyword_lex_fn: Some(lex_keywords_main),
+    keyword_capture_token: COUNTS.keyword_capture_token,
+    external_scanner: gositter::ExternalScannerInfo {
+        states: gositter::Bools::at(TABLES, TS_EXTERNAL_SCANNER_STATES.0, TS_EXTERNAL_SCANNER_STATES.1),
+        symbol_map: gositter::U16s::at(TABLES, TS_EXTERNAL_SCANNER_SYMBOL_MAP.0, TS_EXTERNAL_SCANNER_SYMBOL_MAP.1),
+        create: Some(scanner::new),
+    },
+    primary_state_ids: gositter::U16s::at(TABLES, TS_PRIMARY_STATE_IDS.0, TS_PRIMARY_STATE_IDS.1),
+    name: "php",
+    reserved_words: gositter::U16s::at(TABLES, TS_RESERVED_WORDS.0, TS_RESERVED_WORDS.1),
+    max_reserved_word_set_size: COUNTS.max_reserved_word_set_size,
+    supertype_count: COUNTS.supertype_count,
+    supertype_symbols: gositter::U16s::at(TABLES, TS_SUPERTYPE_SYMBOLS.0, TS_SUPERTYPE_SYMBOLS.1),
+    supertype_map_slices: gositter::MapSlices::at(TABLES, TS_SUPERTYPE_MAP_SLICES.0, TS_SUPERTYPE_MAP_SLICES.1),
+    supertype_map_entries: gositter::U16s::at(TABLES, TS_SUPERTYPE_MAP_ENTRIES.0, TS_SUPERTYPE_MAP_ENTRIES.1),
+    metadata: gositter::LanguageMetadata { major_version: 0, minor_version: 24, patch_version: 2 },
+});
+
+pub fn language() -> &'static gositter::Language {
+    &LANGUAGE
+}

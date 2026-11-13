@@ -127,6 +127,12 @@ func read(dir, name string) []byte {
 	return src
 }
 
+// dumpBudget stops a parse that stalls without end (a mutant can make Go and Rust both run out of
+// memory with no limit); its dump is then overBudget. It is the top of the stall range.
+const dumpBudget = 1 << 20
+
+const overBudget = "OVER BUDGET\n"
+
 func dump(dir, in, out string) {
 	l := language(dir)
 	var fields []string
@@ -137,7 +143,11 @@ func dump(dir, in, out string) {
 	for _, name := range inputs(in) {
 		src := read(in, name)
 		var b bytes.Buffer
-		treedump.Dump(&b, treedump.Wrap(p.Parse(src).RootNode()), fields, src)
+		if tree := p.ParseBudget(src, dumpBudget); tree != nil {
+			treedump.Dump(&b, treedump.Wrap(tree.RootNode()), fields, src)
+		} else {
+			b.WriteString(overBudget)
+		}
 		write(filepath.Join(out, name+".dump"), b.Bytes())
 	}
 }

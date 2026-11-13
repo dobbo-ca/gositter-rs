@@ -43,26 +43,66 @@ pub struct Scanner {
 
 /// `iswspace` in the "C" locale: the six ASCII spaces, nothing above 127, not -1.
 fn iswspace(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    // ' ', then \t \n \v \f \r.
+    c == 32 || (9..=13).contains(&c)
 }
 
 impl Scanner {
     /// `newScanner`
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     /// `Serialize`
     pub fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (self, buf);
-        todo!()
+        if self.interpolation_stack.len() * 4 + 2 > SERIALIZATION_BUFFER_SIZE {
+            return 0;
+        }
+
+        let mut size = 0;
+
+        buf[size] = self.quote_count;
+        size += 1;
+        // At most 255 entries pass the test above, so the byte does not wrap.
+        buf[size] = self.interpolation_stack.len() as u8;
+        size += 1;
+
+        for i in &self.interpolation_stack {
+            buf[size..size + 4].copy_from_slice(&[
+                i.dollar_count,
+                i.open_brace_count,
+                i.quote_count,
+                i.string_type,
+            ]);
+            size += 4;
+        }
+
+        size
     }
 
     /// `Deserialize`
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = (self, buf);
-        todo!()
+        self.quote_count = 0;
+        self.interpolation_stack.clear();
+        let mut size = 0;
+
+        if !buf.is_empty() {
+            self.quote_count = buf[size];
+            size += 1;
+            let n = buf[size] as usize;
+            size += 1;
+
+            for _ in 0..n {
+                self.interpolation_stack.push(Interpolation {
+                    dollar_count: buf[size],
+                    open_brace_count: buf[size + 1],
+                    quote_count: buf[size + 2],
+                    string_type: buf[size + 3],
+                });
+                size += 4;
+            }
+        }
+        // C: assert(size == length). Holds for every buffer serialize wrote.
     }
 }
 

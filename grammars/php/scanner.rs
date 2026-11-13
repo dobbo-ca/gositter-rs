@@ -37,41 +37,91 @@ pub struct Scanner {
 // ASCII only, false for the -1 of an invalid byte.
 
 fn iswspace(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    // ' ', then \t \n \v \f \r.
+    c == 32 || (9..=13).contains(&c)
 }
 
 fn iswdigit(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    (48..=57).contains(&c)
 }
 
 fn iswxdigit(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    iswdigit(c) || (97..=102).contains(&c) || (65..=70).contains(&c)
 }
 
 fn iswalnum(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    iswdigit(c) || (97..=122).contains(&c) || (65..=90).contains(&c)
 }
 
 impl Scanner {
     /// `newScanner`
     pub fn new() -> Self {
-        todo!()
+        Self::default()
     }
 
     /// `Serialize`
     pub fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (self, buf);
-        todo!()
+        let mut size = 0;
+
+        // (char) cast: the count wraps at 256. It cannot get that far, 205 empty heredocs already
+        // hit the size check below.
+        buf[size] = self.heredocs.len() as u8;
+        size += 1;
+        for h in &self.heredocs {
+            let word_size = h.word.len() * 4;
+            if size + 5 + word_size >= SERIALIZATION_BUFFER_SIZE {
+                return 0;
+            }
+            buf[size] = u8::from(h.end_word_indentation_allowed);
+            size += 1;
+            buf[size..size + 4].copy_from_slice(&(h.word.len() as u32).to_le_bytes());
+            size += 4;
+            for c in &h.word {
+                buf[size..size + 4].copy_from_slice(&c.to_le_bytes());
+                size += 4;
+            }
+        }
+
+        size
     }
 
     /// `Deserialize`
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = (self, buf);
-        todo!()
+        let mut size = 0;
+        self.has_leading_whitespace = false;
+
+        // C empties every heredoc but keeps heredocs.size. The vector never shrinks here, so a
+        // state with fewer heredocs (or the empty state) leaves the extra ones in place with an
+        // empty word. Kept: the runtime compares the serialized bytes, and scan reads
+        // heredocs.size.
+        for h in &mut self.heredocs {
+            *h = Heredoc::default();
+        }
+
+        if buf.is_empty() {
+            return;
+        }
+
+        let open_heredoc_count = buf[size] as usize;
+        size += 1;
+        if self.heredocs.len() < open_heredoc_count {
+            self.heredocs.resize(open_heredoc_count, Heredoc::default());
+        }
+        for h in self.heredocs.iter_mut().take(open_heredoc_count) {
+            h.end_word_indentation_allowed = buf[size] != 0;
+            size += 1;
+            let n = u32::from_le_bytes([buf[size], buf[size + 1], buf[size + 2], buf[size + 3]])
+                as usize;
+            size += 4;
+            if n > 0 {
+                h.word = buf[size..size + 4 * n]
+                    .chunks_exact(4)
+                    .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .collect();
+                size += 4 * n;
+            }
+        }
+        // C: assert(size == length). Holds for anything serialize wrote.
     }
 }
 

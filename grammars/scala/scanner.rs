@@ -46,32 +46,67 @@ impl Default for Scanner {
 
 /// `iswspace` in the "C" locale: true only for 9..13 and 32.
 fn iswspace(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    // ' ', then \t \n \v \f \r.
+    c == 32 || (9..=13).contains(&c)
 }
 
 /// `iswalnum`, same measurement: ASCII letters and digits only.
 fn iswalnum(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    (48..=57).contains(&c) || (65..=90).contains(&c) || (97..=122).contains(&c)
 }
 
 impl Scanner {
     /// `newScanner`
     pub fn new() -> Self {
-        todo!()
+        Self {
+            indents: Vec::new(),
+            last_indentation_size: -1,
+            last_newline_count: 0,
+            last_column: -1,
+        }
     }
 
     /// `Serialize`
     pub fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = (self, buf);
-        todo!()
+        // Too deep to fit: C stores nothing, so the state reads back as reset.
+        if (self.indents.len() + 3) * 2 > SERIALIZATION_BUFFER_SIZE {
+            return 0;
+        }
+
+        let mut size = 0;
+        let mut put = |v: i16| {
+            // memcpy of an int16_t, little-endian
+            buf[size..size + 2].copy_from_slice(&v.to_le_bytes());
+            size += 2;
+        };
+        put(self.last_indentation_size);
+        put(self.last_newline_count);
+        put(self.last_column);
+        for &v in &self.indents {
+            put(v);
+        }
+        size
     }
 
     /// `Deserialize`
     pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = (self, buf);
-        todo!()
+        self.indents.clear();
+        self.last_indentation_size = -1;
+        self.last_column = -1;
+        self.last_newline_count = 0;
+
+        if buf.is_empty() {
+            return;
+        }
+
+        // The length is always even and at least 6: it comes from serialize.
+        let get = |i: usize| i16::from_le_bytes([buf[i], buf[i + 1]]);
+        self.last_indentation_size = get(0);
+        self.last_newline_count = get(2);
+        self.last_column = get(4);
+        for size in (6..buf.len()).step_by(2) {
+            self.indents.push(get(size));
+        }
     }
 }
 

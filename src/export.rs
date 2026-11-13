@@ -9,7 +9,8 @@ use crate::subtree::{
     Subtree, SubtreeHeap, SubtreePool, TREE_STATE_NONE,
 };
 use crate::{
-    ExternalScanner, Language, Parser, SYMBOL_ERROR, SYMBOL_ERROR_REPEAT, StateId, Symbol,
+    ExternalScanner, FieldId, Language, Node, Parser, SYMBOL_ERROR, SYMBOL_ERROR_REPEAT, StateId,
+    Symbol,
 };
 
 impl Language {
@@ -373,5 +374,21 @@ impl Parser {
     #[doc(hidden)]
     pub fn kept_scanner(&self) -> Option<&dyn ExternalScanner> {
         todo!("gositter-rs-2f0.11")
+    }
+}
+
+impl<'t> Node<'t> {
+    /// ChildRef (`export_test.go:268`): `child` as it was with one loop for every node, the
+    /// reference for the loop of a node with no alias sequence.
+    #[doc(hidden)]
+    pub fn child_ref(self, _i: u32, _include_anonymous: bool) -> Option<Node<'t>> {
+        todo!("gositter-rs-2f0.10")
+    }
+
+    /// ChildByFieldIDRef (`export_test.go:186`): ts_node_child_by_field_id as first ported,
+    /// on the child iterator; the reference for `child_by_field_id`.
+    #[doc(hidden)]
+    pub fn child_by_field_id_ref(self, _id: FieldId) -> Option<Node<'t>> {
+        todo!("gositter-rs-2f0.10")
     }
 }

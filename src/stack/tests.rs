@@ -43,7 +43,6 @@ fn test_leaf(sp: &mut SubtreePool, lang: &Language, sym: Symbol, heap: bool) -> 
 
 /// TestStackPushPopCount
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_push_pop_count() {
     let (mut s, mut sp, lang) = new_test_stack();
     assert!(
@@ -90,7 +89,6 @@ fn stack_push_pop_count() {
 
 /// TestStackPopCountSkipsExtras
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_pop_count_skips_extras() {
     let (mut s, mut sp, lang) = new_test_stack();
     let a = test_leaf(&mut sp, lang, TS_ANON, false);
@@ -114,7 +112,6 @@ fn stack_pop_count_skips_extras() {
 
 /// TestStackMergeAndAmbiguousPop
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_merge_and_ambiguous_pop() {
     let (mut s, mut sp, lang) = new_test_stack();
     let a = test_leaf(&mut sp, lang, TS_ANON, true);
@@ -154,7 +151,6 @@ fn stack_merge_and_ambiguous_pop() {
 
 /// TestStackEquivalentLinksCollapse
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_equivalent_links_collapse() {
     let (mut s, mut sp, lang) = new_test_stack();
     let v1 = s.copy_version(&mut sp, 0);
@@ -170,7 +166,6 @@ fn stack_equivalent_links_collapse() {
 
 /// TestStackPauseResumeHalt
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_pause_resume_halt() {
     let (mut s, mut sp, lang) = new_test_stack();
     let la = test_leaf(&mut sp, lang, TS_ANON, false);
@@ -188,7 +183,6 @@ fn stack_pause_resume_halt() {
 
 /// TestStackErrorDiscontinuityAndSummary
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_error_discontinuity_and_summary() {
     let (mut s, mut sp, lang) = new_test_stack();
     let t = test_leaf(&mut sp, lang, TS_ANON, false);
@@ -234,7 +228,6 @@ fn stack_error_discontinuity_and_summary() {
 
 /// TestStackClearReleases
 #[test]
-#[ignore = "gositter-rs-2f0.9"]
 fn stack_clear_releases() {
     let (mut s, mut sp, lang) = new_test_stack();
     let b = test_leaf(&mut sp, lang, TS_IDENT, true);

@@ -1512,6 +1512,8 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
+    use super::Scanner;
+    use super::tests::check_reset;
     use crate::cchar;
 
     pub(super) const RESET_INPUTS: [&str; 12] = [
@@ -1577,81 +1579,31 @@ mod parser_tests {
             }
         }
     }
-}
 
-// gositter-rs-vjz.12: needs a way to read the parser's kept scanner (ask the runtime)
-#[cfg(any())]
-mod reset_tests {
-    use super::parser_tests::RESET_INPUTS;
-    use super::*;
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    thread_local! {
-        // The scanner the parser made, as language.ExternalScanner.New captures it in Go.
-        static KEPT: RefCell<Option<Rc<RefCell<Scanner>>>> = const { RefCell::new(None) };
+    /// The scanner the parser keeps for its next parse (gositter `KeptScanner`).
+    fn kept(p: &gositter::Parser) -> &Scanner {
+        let s: &dyn std::any::Any = p.kept_scanner().expect("kept scanner");
+        s.downcast_ref::<Scanner>().expect("this grammar's scanner")
     }
 
-    /// Hands the parser a scanner the test keeps a second handle to.
-    struct Shared(Rc<RefCell<Scanner>>);
-
-    impl gositter::ExternalScanner for Shared {
-        fn scan(&mut self, l: &mut gositter::Lexer, valid: &[bool]) -> bool {
-            self.0.borrow_mut().scan(l, valid)
-        }
-        fn serialize(&self, buf: &mut [u8; SERIALIZATION_BUFFER_SIZE]) -> usize {
-            self.0.borrow().serialize(buf)
-        }
-        fn deserialize(&mut self, buf: &[u8]) {
-            self.0.borrow_mut().deserialize(buf)
-        }
-        fn reset(&mut self) -> bool {
-            self.0.borrow_mut().reset();
-            true
-        }
-    }
-
-    fn capture() -> Box<dyn gositter::ExternalScanner> {
-        let rc = Rc::new(RefCell::new(Scanner::new()));
-        KEPT.with(|k| *k.borrow_mut() = Some(rc.clone()));
-        Box::new(Shared(rc))
-    }
-
-    // The test swaps the constructor on a clone of the language (`Language: Clone`).
-    fn capturing_language() -> gositter::Language {
-        let mut lang = super::super::language().clone();
-        lang.external_scanner_new = capture;
-        lang
-    }
-
-    fn kept() -> Rc<RefCell<Scanner>> {
-        KEPT.with(|k| k.borrow().clone()).expect("no scanner made")
-    }
-
-    fn serialize(s: &Scanner) -> Vec<u8> {
-        let mut buf = [0u8; SERIALIZATION_BUFFER_SIZE];
-        let n = s.serialize(&mut buf);
-        buf[..n].to_vec()
-    }
-
-    // reset_test.go TestResetIsNew
+    // TestResetIsNew (reset_test.go). Go's `kept` is the scanner the parser made; here it is
+    // read back with kept_scanner, and a clone is reset since the borrow is shared.
+    // Vec equality ignores capacity, so Go's `norm` is not needed.
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
+    #[ignore = "gositter-rs-2f0.11"]
     fn reset_is_new() {
-        use super::tests::check_reset;
-        let lang = capturing_language();
         let mut dirty = 0;
         let mut p = gositter::Parser::new();
-        p.set_language(&lang).unwrap();
+        p.set_language(language()).unwrap();
         for input in RESET_INPUTS {
             for budget in [0u32, 1] {
                 p.reset();
                 p.parse_budget(input.as_bytes(), budget);
-                let k = kept();
-                if *k.borrow() != Scanner::new() {
+                let mut s = kept(&p).clone();
+                if s != Scanner::new() {
                     dirty += 1;
                 }
-                check_reset(&mut k.borrow_mut(), input.trim());
+                check_reset(&mut s, input.trim());
                 // Reset must hold after the scanner is reused too.
                 p.reset();
                 p.parse_budget(input.as_bytes(), budget);
@@ -1663,22 +1615,21 @@ mod reset_tests {
         );
     }
 
-    // A small parse after a huge one must not keep the huge buffers.
-    // reset_test.go TestResetDropsBigBuffers
+    // TestResetDropsBigBuffers (reset_test.go). Go counts the capacity of the kept slots and of
+    // their buffers; a Vec keeps no readable spare slots, so the Vec and the buffers of its
+    // elements are counted.
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
+    #[ignore = "gositter-rs-2f0.11"]
     fn reset_drops_big_buffers() {
         for input in [
             "cat <<A; ".repeat(20000),
             format!("cat <<{}\nbody\n", "A".repeat(2000000)),
         ] {
-            let lang = capturing_language();
             let mut p = gositter::Parser::new();
-            p.set_language(&lang).unwrap();
+            p.set_language(language()).unwrap();
             p.parse(input.as_bytes());
             p.parse(b"echo hi\n");
-            let k = kept();
-            let k = k.borrow();
+            let k = kept(&p);
             let held = k.heredocs.capacity()
                 + k.heredocs
                     .iter()

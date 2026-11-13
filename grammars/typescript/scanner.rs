@@ -14,7 +14,7 @@ const TOK_ESCAPE_SEQUENCE: usize = 5;
 const TOK_REGEX_PATTERN: usize = 6;
 const TOK_JSX_TEXT: usize = 7;
 const TOK_FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON: usize = 8;
-#[allow(dead_code)] // used by scan (Task 12)
+#[allow(dead_code)] // C enum member; scan never reads it
 const TOK_ERROR_RECOVERY: usize = 9;
 
 // iswspace, iswalpha, iswdigit: no setlocale call anywhere, so libc is in the "C" locale. Measured
@@ -381,7 +381,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }
@@ -422,20 +421,18 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // Parses through the scanner: template chars, ASI, ternary, html comment.
     // scanner_test.go TestParse
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn parse() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         assert!(
-            language().tables.external_scanner.create.is_some(),
+            super::super::language()
+                .tables
+                .external_scanner
+                .create
+                .is_some(),
             "ExternalScanner.New is nil: rerun grammars/gen.sh"
         );
         let src = "let a = `x${b}y`\nlet c = a ? 1 : 2\n<!-- c\nfunction f(x?: number) {}\n";

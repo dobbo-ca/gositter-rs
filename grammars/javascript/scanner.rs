@@ -401,7 +401,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }
@@ -450,17 +449,11 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // scanner_test.go TestScanSmoke
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn scan_smoke() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         let src = "let a = 1\nlet b = `x${a}y`\nconst c = a ? b : /re/g\n";
         let tree = p.parse(src.as_bytes()).unwrap();
         assert!(
@@ -471,28 +464,30 @@ mod parser_tests {
     }
 }
 
-// gositter-rs-vjz.10: needs the generated consts
-#[cfg(any())]
+#[cfg(test)]
 mod const_tests {
     use super::*;
 
     // The token order must be the grammar's externals order.
     // scanner_test.go TestTokenOrder
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn token_order() {
         let mut want = [0u16; 8];
-        want[TOK_AUTOMATIC_SEMICOLON] = super::super::SYM__AUTOMATIC_SEMICOLON;
-        want[TOK_TEMPLATE_CHARS] = super::super::SYM__TEMPLATE_CHARS;
-        want[TOK_TERNARY_QMARK] = super::super::SYM__TERNARY_QMARK;
-        want[TOK_HTML_COMMENT] = super::super::SYM_HTML_COMMENT;
-        want[TOK_LOGICAL_OR] = super::super::ANON_SYM_PIPE_PIPE;
-        want[TOK_ESCAPE_SEQUENCE] = super::super::SYM_ESCAPE_SEQUENCE;
-        want[TOK_REGEX_PATTERN] = super::super::SYM_REGEX_PATTERN;
-        want[TOK_JSX_TEXT] = super::super::SYM_JSX_TEXT;
+        want[TOK_AUTOMATIC_SEMICOLON] = super::super::sym__automatic_semicolon;
+        want[TOK_TEMPLATE_CHARS] = super::super::sym__template_chars;
+        want[TOK_TERNARY_QMARK] = super::super::sym__ternary_qmark;
+        want[TOK_HTML_COMMENT] = super::super::sym_html_comment;
+        want[TOK_LOGICAL_OR] = super::super::anon_sym_PIPE_PIPE;
+        want[TOK_ESCAPE_SEQUENCE] = super::super::sym_escape_sequence;
+        want[TOK_REGEX_PATTERN] = super::super::sym_regex_pattern;
+        want[TOK_JSX_TEXT] = super::super::sym_jsx_text;
         for (i, w) in want.into_iter().enumerate() {
             assert_eq!(
-                super::super::EXTERNAL_SCANNER_SYMBOL_MAP[i],
+                super::super::language()
+                    .tables
+                    .external_scanner
+                    .symbol_map
+                    .get(i),
                 w,
                 "symbol_map[{i}]"
             );

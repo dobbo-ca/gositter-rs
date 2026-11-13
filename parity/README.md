@@ -42,7 +42,7 @@ Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 | gositter `Example` / `Benchmark` / `Fuzz` | 3 | 2 | 0 | 1 |
 | C goldens (`testdata/regress`) | 1,423 | 1,423 | 0 | 50 (json) |
 | gositter `cmd/gengrammar` and `grammars/internal/cchar` tests | 3 | 3 | 0 | 3 |
-| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (62 compiled, 1 compiled out) | 63 | 63 | 0 | 42 |
+| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` (63 compiled, 0 compiled out) | 63 | 63 | 0 | 48 |
 
 "Ported" counts a test once it is in the tree (passing or `#[ignore = "<bead>"]`); "Passing" counts it once
 it runs green in the `test` job.
@@ -123,7 +123,7 @@ it runs green in the `test` job.
 
 | Go file | Go test | Rust test | Rust file | Status |
 |---|---|---|---|---|
-| example_test.go | `Example` | `example_python` | `tests/example.rs` | ported, ignored until its grammar |
+| example_test.go | `Example` | `example_python` | `tests/example.rs` | ported, passing |
 | parser_test.go | `BenchmarkParseJSON` | `gsdump bench`, row `json_2000` | `examples/gsdump.rs`, `parity/bench.sh` | ported; the table is in each `bench.yml` run summary |
 | lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | `advance_run_random` and `advance_run_fuzz_hook` passing; fuzz target `advance_run` in `.github/workflows/fuzz.yml` |
 
@@ -146,19 +146,19 @@ something that does not exist yet (a comment gives the bead). "Ported" is the su
 | `csharp/scanner_test.go` | 5 | 4 | 1 `TestScanState` | 0 |
 | `hcl/scanner_test.go` | 3 | 3 | 0 | 0 |
 | `hcl/reset_test.go` | 3 | 0 | 3 `TestResetIsNew`, `TestReusedScannerSameTree`, `TestResetDropsBigBuffers` | 0 |
-| `javascript/scanner_test.go` | 4 | 2 | 1 `TestScanSmoke` | 1 `TestTokenOrder` (`.10`: needs the generated consts) |
+| `javascript/scanner_test.go` | 4 | 4 | 0 | 0 |
 | `julia/scanner_test.go` | 3 | 1 | 2 `TestLanguageWiresScanner`, `TestParseScannerTokens` | 0 |
 | `kotlin/scanner_test.go` | 3 | 2 | 1 `TestScan` | 0 |
 | `lua/scanner_test.go` | 3 | 2 | 1 `TestLongBrackets` | 0 |
 | `php/scanner_test.go` | 4 | 4 | 0 | 0 |
 | `python/scanner_test.go` | 3 | 3 | 0 | 0 |
-| `python/reset_test.go` | 2 | 0 | 2 `TestResetIsNew`, `TestReusedScannerSameTree` | 0 |
+| `python/reset_test.go` | 2 | 2 | 0 | 0 |
 | `ruby/scanner_test.go` | 5 | 5 | 0 | 0 |
 | `rust/scanner_test.go` | 2 | 2 | 0 | 0 |
 | `scala/scanner_test.go` | 4 | 4 | 0 | 0 |
-| `tsx/scanner_test.go` | 3 | 2 | 1 `TestParse` | 0 |
-| `typescript/scanner_test.go` | 3 | 2 | 1 `TestParse` | 0 |
-| **Total** | **66** | **45** | **20** | **1** |
+| `tsx/scanner_test.go` | 3 | 3 | 0 | 0 |
+| `typescript/scanner_test.go` | 3 | 3 | 0 | 0 |
+| **Total** | **66** | **51** | **15** | **0** |
 
 Beads: `.10` is `gositter-rs-vjz.10` (Task 10, generated `language()`), `.12` is `gositter-rs-vjz.12`
 (Task 12, `scan` and the `ExternalScanner` impl), `gositter-rs-2f0.11` is the runtime parser (the

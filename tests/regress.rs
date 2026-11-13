@@ -187,6 +187,10 @@ regress_wired! {
     regress_c => "c",
     regress_go => "go",
     regress_java => "java",
+    regress_javascript => "javascript",
+    regress_python => "python",
+    regress_tsx => "tsx",
+    regress_typescript => "typescript",
     regress_verilog => "verilog",
     regress_zig => "zig",
 }
@@ -206,17 +210,13 @@ regress_tests! {
     regress_cpp => "cpp",
     regress_c_sharp => "c-sharp",
     regress_hcl => "hcl",
-    regress_javascript => "javascript",
     regress_julia => "julia",
     regress_kotlin => "kotlin",
     regress_lua => "lua",
     regress_php => "php",
-    regress_python => "python",
     regress_ruby => "ruby",
     regress_rust => "rust",
     regress_scala => "scala",
-    regress_tsx => "tsx",
-    regress_typescript => "typescript",
 }
 
 /// Checks the summaries of the last tree of `p` and adds the counts to `sum`.

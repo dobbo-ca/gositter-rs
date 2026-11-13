@@ -158,6 +158,25 @@ fn cond_rs(c: &Cond, and_or: u8) -> String {
     }
 }
 
+/// Go's lex.go compares an int32 lookahead with the literal, so a literal outside int32 does not compile.
+fn check_lits(c: &Cond) -> Result<(), GenError> {
+    match c {
+        Cond::Eof | Cond::SetContains { .. } => Ok(()),
+        Cond::Not(x) => check_lits(x),
+        Cond::And(a, b) | Cond::Or(a, b) => check_lits(a).and(check_lits(b)),
+        Cond::Cmp(_, a, b) => {
+            for o in [a, b] {
+                if let Operand::Lit(v) = o
+                    && i32::try_from(*v).is_err()
+                {
+                    return err(format!("lex condition: literal {v} does not fit int32"));
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 fn symbol(g: &Grammar, name: &str) -> Result<i64, GenError> {
     match g.consts.get(name) {
         Some(&v) if (0..=0xFFFF).contains(&v) => Ok(v),
@@ -295,6 +314,9 @@ fn record(g: &Grammar, case: &LexCase, run: RunId, sets: &Sets) -> Result<Vec<u8
     let mut b = Vec::new();
     match run {
         Some((k, skip)) => {
+            if k >= 0xFFFF {
+                return err(format!("lex table: {k} run sets"));
+            }
             put_u16(&mut b, k)?;
             b.push(u8::from(skip));
         }
@@ -336,7 +358,9 @@ fn region(g: &Grammar, f: &LexFunc, ids: &[RunId], sets: &Sets) -> Result<Vec<u8
     put_u16(&mut dir, order.len())?;
     for i in order {
         dir.extend(f.cases[i].state.to_le_bytes());
-        dir.extend(((head + recs.len()) as u32).to_le_bytes());
+        let off = u32::try_from(head + recs.len())
+            .map_err(|_| GenError("lex table: region larger than 4 GiB".to_string()))?;
+        dir.extend(off.to_le_bytes());
         recs.extend(record(g, &f.cases[i], ids[i], sets)?);
     }
     dir.extend(recs);
@@ -376,9 +400,72 @@ fn emit_table(g: &Grammar, sets: &Sets) -> Result<(String, Vec<u8>), GenError> {
 /// The text of `lex.rs` after its header lines, and for `Table` the bytes of `lex.bin` (empty for
 /// `Code`).
 pub fn emit_lex(g: &Grammar, form: LexForm) -> Result<(String, Vec<u8>), GenError> {
+    for st in g
+        .lex_fns
+        .iter()
+        .flat_map(|f| &f.cases)
+        .flat_map(|c| &c.stmts)
+    {
+        if let Stmt::If { cond, .. } = st {
+            check_lits(cond)?;
+        }
+    }
     let sets = char_sets(g);
     match form {
         LexForm::Code => Ok((emit_code(g, &sets)?, Vec::new())),
         LexForm::Table => emit_table(g, &sets),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MINI: &str = include_str!("../../testdata/gengrammar/mini.c");
+
+    fn with_lit(v: i64) -> Grammar {
+        let mut g = crate::parse::parse_grammar(MINI).unwrap();
+        let cond = Cond::Cmp(CmpOp::Lt, Operand::Lookahead, Operand::Lit(v));
+        let stmts = vec![
+            Stmt::If {
+                cond,
+                skip: false,
+                target: 0,
+            },
+            Stmt::End,
+        ];
+        g.lex_fns[0].cases.push(LexCase {
+            state: 60000,
+            stmts,
+        });
+        g
+    }
+
+    // Go never adds 1 to the literal (run.go value()), so i64::MAX must not panic; it is refused
+    // like Go's lex.go, which does not compile `lookahead < <literal over int32>`.
+    #[test]
+    fn literal_outside_int32_is_refused_in_both_forms() {
+        for v in [i64::MAX, i64::from(i32::MAX) + 1, i64::from(i32::MIN) - 1] {
+            for form in [LexForm::Code, LexForm::Table] {
+                let e = emit_lex(&with_lit(v), form).unwrap_err();
+                assert!(e.0.contains("does not fit int32"), "{v}: {}", e.0);
+            }
+        }
+        for form in [LexForm::Code, LexForm::Table] {
+            emit_lex(&with_lit(i64::from(i32::MAX)), form).unwrap();
+        }
+    }
+
+    // 0xFFFF is the "no run" sentinel of run_table; emit.go:288-316 has no such index limit.
+    #[test]
+    fn run_index_sentinel_is_refused() {
+        let g = crate::parse::parse_grammar(MINI).unwrap();
+        let case = LexCase {
+            state: 0,
+            stmts: vec![Stmt::End],
+        };
+        let e = record(&g, &case, Some((0xFFFF, false)), &Sets::new()).unwrap_err();
+        assert!(e.0.contains("65535 run sets"));
+        assert!(record(&g, &case, Some((0xFFFE, false)), &Sets::new()).is_ok());
     }
 }

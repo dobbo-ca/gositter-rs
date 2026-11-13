@@ -124,6 +124,45 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
     --mount=type=cache,target=/src/target,sharing=private \
     sh ci/fresh.sh && cargo test --locked --workspace
 
+# --- Parity (docs/superpowers/plans/2026-11-13-runtime.md, Task 12) ---
+
+# The Go gsdump (parity/go/gsdump/main.go), built as cmd/gsdump inside a copy of the gositter v0.2.0
+# module so it can import internal/treedump. Pure Go (CGO_ENABLED=0); the module download is checked
+# against parity/go/go.sum. gsdump-arm64 is for parity-arm64.
+FROM golang:1.27-bookworm AS go-oracle
+ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOFLAGS=-mod=readonly
+COPY parity/go /parity
+RUN test -z "$(gofmt -l /parity)" || { gofmt -l /parity; exit 1; }
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    set -e; cd /parity; go mod download github.com/dobbo-ca/gositter; \
+    cp -r "$(go list -m -f '{{.Dir}}' github.com/dobbo-ca/gositter)" /gst; chmod -R u+w /gst; \
+    mkdir -p /gst/cmd/gsdump; cp /parity/gsdump/main.go /gst/cmd/gsdump/; cd /gst; \
+    go vet ./cmd/gsdump && go build -o /out/gsdump ./cmd/gsdump && GOARCH=arm64 go build -o /out/gsdump-arm64 ./cmd/gsdump
+
+# The Go oracle must equal the C goldens first: a red here is an oracle problem, not a port bug.
+# Then the mutants of every regress input (gsdump gen, seed 1), and every 10th of them for
+# parity-arm64.
+FROM go-oracle AS go-run
+COPY testdata/regress /regress
+RUN set -e; for d in $(/out/gsdump list); do /out/gsdump dump $d /regress/$d /go-c/$d; done; \
+    n=0; bad=0; for f in $(find /regress -name '*.dump.gz' | sort); do r=${f#/regress/}; n=$((n+1)); \
+        gunzip -c "$f" | cmp -s - "/go-c/${r%.gz}" || { echo "go-run: Go differs from C: $r"; bad=$((bad+1)); }; done; \
+    echo "go-run: $((n-bad)) of $n goldens equal"; test "$bad" = 0 && test "$n" = 1423
+RUN set -e; /out/gsdump gen /regress /extra; for d in $(ls /extra); do mkdir -p /extra10/$d; \
+        ls /extra/$d | awk 'NR % 10 == 1' | while read -r f; do cp "/extra/$d/$f" /extra10/$d/; done; done; \
+    echo "go-run: $(find /extra -type f | wc -l) mutants, $(find /extra10 -type f | wc -l) for arm64"
+
+# The Rust gsdump against the Go one (ci/parity.sh): trees of the regress inputs and all mutants,
+# LOG lines, stall counts and kind names. Dirs without a Rust grammar yet are listed as skipped.
+FROM src AS parity
+COPY --from=go-run /out /out
+COPY --from=go-run /extra /extra
+RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/src/target,sharing=private \
+    sh ci/fresh.sh && cargo build --locked --release --example gsdump \
+    && cp target/release/examples/gsdump /usr/local/bin/gsdump-rs
+RUN sh ci/parity.sh /out/gsdump gsdump-rs /extra full
+
 # qemu-user and the aarch64 cross toolchain, for the arm64 stage.
 FROM toolchain AS qemu-tools
 RUN apt-get update && apt-get install -y --no-install-recommends qemu-user gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
@@ -145,3 +184,15 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target,sharing=private \
     sh ci/fresh.sh && cargo test --locked --workspace --target aarch64-unknown-linux-gnu
+
+# The trees on aarch64 (plan Review Focus 5: C char is unsigned on linux/arm64): the aarch64 Rust
+# gsdump against the arm64 Go gsdump, both under qemu-user, on the regress inputs and every 10th
+# mutant. Runs on main and on dispatch.
+FROM qemu-arm64 AS parity-arm64
+COPY --from=go-run /out /out
+COPY --from=go-run /extra10 /extra10
+RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/src/target,sharing=private \
+    sh ci/fresh.sh && cargo build --locked --release --target aarch64-unknown-linux-gnu --example gsdump \
+    && cp target/aarch64-unknown-linux-gnu/release/examples/gsdump /usr/local/bin/gsdump-rs
+RUN sh ci/parity.sh "qemu-aarch64 /out/gsdump-arm64" "qemu-aarch64 -L /usr/aarch64-linux-gnu /usr/local/bin/gsdump-rs" /extra10

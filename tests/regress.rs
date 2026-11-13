@@ -84,8 +84,13 @@ fn regress_kinds(l: &'static Language) -> HashMap<&'static str, u32> {
     kinds
 }
 
+/// The language of `dir`, with its regress kinds named first. Go names them in `init()`, before
+/// any test parses; here the tests of this binary share each language across threads, and a kind
+/// named during another test's parse changes the kind bits of that parse's summaries.
 fn language(dir: &str) -> &'static Language {
-    common::language(dir).unwrap_or_else(|| panic!("{dir} grammar"))
+    let l = common::language(dir).unwrap_or_else(|| panic!("{dir} grammar"));
+    regress_kinds(l);
+    l
 }
 
 /// Go `TestRegress` for one directory: replays each source against its C dump, twice on one

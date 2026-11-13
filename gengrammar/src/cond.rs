@@ -1,6 +1,6 @@
 //! Lex condition AST. Go keeps a condition as Go source and re-parses it with `go/parser`; the
-//! Rust port builds this tree in `parse.rs` from the same accepted grammar. Evaluation and range
-//! lists come with the lexer emitter.
+//! Rust port builds this tree in `parse.rs` from the same accepted grammar. Evaluation comes with the
+//! lexer emitter.
 
 use std::collections::HashMap;
 
@@ -77,60 +77,6 @@ pub fn eval(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>, lookahead: i64, e
         }
         Cond::SetContains { set, .. } => sets.get(set).is_some_and(|r| set_contains(r, lookahead)),
     }
-}
-
-fn breakpoints(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>, out: &mut Vec<i64>) {
-    match c {
-        Cond::Eof => {}
-        Cond::Not(x) => breakpoints(x, sets, out),
-        Cond::And(a, b) | Cond::Or(a, b) => {
-            breakpoints(a, sets, out);
-            breakpoints(b, sets, out);
-        }
-        Cond::Cmp(_, a, b) => {
-            for o in [a, b] {
-                if let Operand::Lit(v) = o {
-                    out.extend([*v, v.saturating_add(1)]);
-                }
-            }
-        }
-        Cond::SetContains { set, .. } => {
-            for &(s, e) in sets.get(set).into_iter().flatten() {
-                out.extend([s as i64, e as i64 + 1]);
-            }
-        }
-    }
-}
-
-/// The lookaheads in -1..=0x10FFFF that satisfy `c` when not at end of input, as sorted ranges.
-pub fn ranges(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>) -> Vec<(i32, i32)> {
-    ranges_with(c, sets, false)
-}
-
-/// `ranges` for a given value of `eof`.
-pub fn ranges_with(
-    c: &Cond,
-    sets: &HashMap<String, Vec<(i32, i32)>>,
-    eof: bool,
-) -> Vec<(i32, i32)> {
-    const MAX: i64 = 0x10FFFF;
-    let mut starts = vec![-1];
-    breakpoints(c, sets, &mut starts);
-    starts.retain(|&v| (-1..=MAX).contains(&v));
-    starts.sort_unstable();
-    starts.dedup();
-    let mut out: Vec<(i32, i32)> = Vec::new();
-    for (i, &s) in starts.iter().enumerate() {
-        if !eval(c, sets, s, eof) {
-            continue;
-        }
-        let e = starts.get(i + 1).map_or(MAX, |n| n - 1) as i32;
-        match out.last_mut() {
-            Some(last) if last.1 + 1 == s as i32 => last.1 = e,
-            _ => out.push((s as i32, e)),
-        }
-    }
-    out
 }
 
 /// C `set_contains`: the binary search of `emit.go` `setContains`.

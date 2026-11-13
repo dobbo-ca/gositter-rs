@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gengrammar::cond::{CmpOp, Cond, Operand, char_sets, eval, ranges, run_sets, set_contains};
+use gengrammar::cond::{CmpOp, Cond, Operand, char_sets, eval, run_sets, set_contains};
 use gengrammar::parse::parse_grammar;
 
 const MINI: &str = include_str!("../../testdata/gengrammar/mini.c");
@@ -91,16 +91,6 @@ fn set_contains_matches_linear_scan() {
 }
 
 #[test]
-fn ranges_example() {
-    let sets = HashMap::new();
-    assert_eq!(
-        ranges(&sample(), &sets),
-        [(-1, -1), (1, 39), (42, 0x10FFFF)]
-    );
-    assert!(ranges(&Cond::Eof, &sets).is_empty());
-}
-
-#[test]
 fn eval_points_and_eof() {
     let sets = HashMap::new();
     let c = sample();
@@ -114,12 +104,4 @@ fn eval_points_and_eof() {
     assert!(eval(&Cond::Eof, &sets, 5, true));
     assert!(!eval(&Cond::Eof, &sets, 5, false));
     assert!(!eval(&Cond::Not(Box::new(Cond::Eof)), &sets, 5, true));
-}
-
-/// `lookahead < i64::MAX` must not overflow in `v + 1`; Go only compares (run.go:125).
-#[test]
-fn ranges_literal_i64_max() {
-    let c = cmp(CmpOp::Lt, Operand::Lookahead, Operand::Lit(i64::MAX));
-    let r = ranges(&c, &HashMap::new());
-    assert_eq!((r[0].0, r[r.len() - 1].1), (-1, 0x10FFFF));
 }

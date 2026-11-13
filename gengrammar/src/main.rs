@@ -103,9 +103,10 @@ fn generate(
     let mut g = parse_grammar(src).map_err(|e| e.0)?;
     let info = check_language(&mut g).map_err(|e| e.0)?;
     let blob = write_blob(&g, &info);
-    let rs = mod_rs(&header(l, &sum), &g, &info, &blob);
+    let has_lex = LEX_GRAMMARS.contains(&l.pkg.as_str());
+    let rs = mod_rs(&header(l, &sum), &g, &info, &blob, has_lex);
     let mut files = vec![("tables.bin", blob.bytes), ("mod.rs", rs.into_bytes())];
-    if LEX_GRAMMARS.contains(&l.pkg.as_str()) {
+    if has_lex {
         let (body, bin) = emit_lex(&g, lexer).map_err(|e| e.0)?;
         files.push((
             "lex.rs",

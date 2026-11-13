@@ -19,7 +19,7 @@ fn names(g: &Grammar, table: &str) -> String {
 }
 
 /// The text of `mod.rs`: constants, offsets and names. `language()` comes with the runtime.
-pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob) -> String {
+pub fn mod_rs(hdr: &str, g: &Grammar, info: &LangInfo, blob: &Blob, _has_lex: bool) -> String {
     let mut s = format!("{hdr}\n#![allow(non_upper_case_globals)]\n");
     for en in &g.enums {
         s.push_str(&format!("\n// enum {}\n", en.name));

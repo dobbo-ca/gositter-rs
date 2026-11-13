@@ -79,7 +79,11 @@ impl Language {
     pub fn field_id_for_name(&self, name: &str) -> FieldId {
         let ids = self.derived.field_ids.get_or_init(|| {
             let count = self.tables.field_count as u16 as usize;
-            self.tables.field_names[1..count + 1]
+            // A grammar with no fields (verilog) can have an empty name table, as in Go.
+            self.tables
+                .field_names
+                .get(1..count + 1)
+                .unwrap_or_default()
                 .iter()
                 .map(|&field| (field, self.field_id_for_name_scan(field)))
                 .collect::<HashMap<_, _>>()
@@ -579,6 +583,21 @@ mod tests {
             assert_eq!(lang.field_id_for_name(name), want, "{name:?}");
             assert_eq!(lang.field_id_for_name_scan(name), want, "{name:?} (scan)");
         }
+        assert_eq!(lang.field_id_mismatch(), None);
+    }
+
+    #[test]
+    fn no_fields_and_an_empty_name_table() {
+        // gositter's verilog has FIELD_COUNT 0 and no field names at all.
+        let lang = Box::leak(Box::new(Language::new(LanguageTables {
+            field_count: 0,
+            field_names: &[],
+            ..TABLES
+        })));
+        assert_eq!(lang.field_id_for_name("key"), 0);
+        assert_eq!(lang.field_name_for_id(0), None);
+        assert_eq!(lang.field_name_for_id(1), None);
+        assert_eq!(lang.field_map(1), (0, 0));
         assert_eq!(lang.field_id_mismatch(), None);
     }
 

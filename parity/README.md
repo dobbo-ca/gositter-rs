@@ -12,6 +12,22 @@ C runtime through it:
    inputs and their mutants; the Rust `gsdump` must write the same bytes. A difference is a bug in the
    port, never in the oracle.
 
+## The parity stages (plan Task 12)
+
+`parity/go/gsdump/main.go` (Go) and `examples/gsdump.rs` (Rust) have the same commands: `list`, `dump`,
+`log`, `stall`, `kinds`, and in Go only `gen`. `ci/Dockerfile` runs them in four stages:
+
+| Stage | What it does |
+|---|---|
+| `go-oracle` | builds the Go `gsdump` as `cmd/gsdump` in a copy of the gositter v0.2.0 module (`CGO_ENABLED=0`; module checked against `parity/go/go.sum`), for amd64 and arm64 |
+| `go-run` | the Go dumps of the 1,423 regress inputs must equal the C goldens; then `gsdump gen` writes 16 mutants of each input (8 truncations, 4 line deletions, 2 line swaps, a stray `(` and `{`; seed 1) |
+| `parity` | `ci/parity.sh`, both tools on amd64: trees of the regress inputs and all mutants, LOG lines (inputs up to 16 KiB), stall counts (up to 8 KiB), quoted kind names; `diff -r` per dir |
+| `parity-arm64` | `ci/parity.sh`, the aarch64 Rust tool and the arm64 Go tool under qemu-user: trees of the regress inputs and every 10th mutant |
+
+A dir that the Rust `gsdump list` does not have yet is printed as skipped. The `parity` and `parity-arm64`
+jobs run on main and on `workflow_dispatch`. A LOG difference with equal trees points at the runtime; a
+first difference in an `L` line inside an external scan points at the scanner.
+
 Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 
 ## Count table

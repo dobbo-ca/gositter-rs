@@ -66,6 +66,11 @@ pub struct LangInfo {
     /// The `char*` tables behind `symbol_names` and `field_names` ("" if not set).
     pub symbol_names: String,
     pub field_names: String,
+    /// `(gositter Language field, table)` for every table the initialiser references; the
+    /// external scanner's are `States` and `SymbolMap`.
+    pub fields: Vec<(String, String)>,
+    /// `metadata.{major,minor,patch}_version`, 0 where not set.
+    pub metadata: [i64; 3],
 }
 
 /// One table in `tables.bin`.
@@ -257,6 +262,7 @@ impl Lang<'_> {
             return fail(format!("{name} has {n} entries, the counts say {w}"));
         }
         self.used.push(name.clone());
+        self.info.fields.push((field.to_string(), name.clone()));
         match field {
             "SymbolNames" => self.info.symbol_names = name.clone(),
             "FieldNames" => self.info.field_names = name.clone(),
@@ -375,11 +381,15 @@ pub fn check_language(g: &mut Grammar) -> Result<LangInfo, GenError> {
     }
 
     if l.g.lang.contains_key("metadata.major_version") {
-        for k in ["major_version", "minor_version", "patch_version"] {
+        for (i, k) in ["major_version", "minor_version", "patch_version"]
+            .into_iter()
+            .enumerate()
+        {
             let v = eval(l.g, &format!("metadata.{k}"))?.unwrap_or(0);
             if !(0..=0xFF).contains(&v) {
                 return fail(format!("metadata.{k} out of range"));
             }
+            l.info.metadata[i] = v;
         }
     }
 

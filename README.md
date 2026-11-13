@@ -4,6 +4,15 @@ A pure-Rust port of [gositter](https://github.com/dobbo-ca/gositter) v0.2.0 (7a2
 
 Status: P0 (CI skeleton). Design: [graphify-rs design](https://github.com/dobbo-ca/graphify-rs/blob/main/docs/superpowers/specs/2026-11-12-graphify-rs-design.md).
 
+## Layout
+
+A Cargo workspace. Plan: `docs/superpowers/plans/2026-11-13-runtime.md` (runtime) and `docs/superpowers/plans/2026-11-13-grammars.md` (gengrammar, grammars, scanners).
+
+| Path | Package | Contents |
+|---|---|---|
+| `src/` | `gositter` | the runtime; `src/api.rs` is the frozen interface with the grammars (changes: `docs/CONTRACT_CHANGES.md`) |
+| `treedump/` | `gositter-treedump` | port of gositter's `internal/treedump`, the dump format of the goldens |
+
 ## Parity
 
 Trees must be C-exact, as in gositter's CONTRACT.md: the 1,423 C-made goldens in `testdata/regress` and the gositter (Go) dump tool are the oracles.

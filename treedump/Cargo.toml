@@ -1,0 +1,13 @@
+[package]
+name = "gositter-treedump"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+description = "Port of gositter's internal/treedump: the tree dump format of the C goldens."
+publish = false
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "deny"

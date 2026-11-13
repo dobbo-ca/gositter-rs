@@ -58,6 +58,11 @@ fn read(path: &Path) -> Vec<u8> {
     std::fs::read(path).unwrap_or_else(|e| die(&format!("{}: {e}", path.display())))
 }
 
+/// Stops a parse that stalls without end (a mutant can make Go and Rust both run out of memory
+/// with no limit); its dump is then [`OVER_BUDGET`]. The top of the stall range, as Go.
+const DUMP_BUDGET: u32 = 1 << 20;
+const OVER_BUDGET: &[u8] = b"OVER BUDGET\n";
+
 fn dump(dir: &str, input: &Path, out: &Path) {
     let l = language(dir);
     // verilog has no fields and an empty name table.
@@ -66,8 +71,12 @@ fn dump(dir: &str, input: &Path, out: &Path) {
     for name in inputs(input) {
         let src = read(&input.join(&name));
         let mut b = Vec::new();
-        let tree = p.parse(&src).unwrap();
-        gositter_treedump::dump(&mut b, tree.root_node(), fields, &src);
+        match p.parse_budget(&src, DUMP_BUDGET) {
+            Some(tree) => {
+                gositter_treedump::dump(&mut b, tree.root_node(), fields, &src);
+            }
+            None => b.extend_from_slice(OVER_BUDGET),
+        }
         write(&out.join(format!("{name}.dump")), &b);
     }
 }

@@ -9,7 +9,17 @@ pub mod cchar;
 pub mod lex;
 
 #[rustfmt::skip]
+pub mod c;
+#[rustfmt::skip]
+pub mod golang;
+#[rustfmt::skip]
+pub mod java;
+#[rustfmt::skip]
 pub mod json;
+#[rustfmt::skip]
+pub mod verilog;
+#[rustfmt::skip]
+pub mod zig;
 
 /// `SerializationBufferSize` of gositter `api.go:25`. Moves to the runtime crate when its scanner trait lands.
 pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;

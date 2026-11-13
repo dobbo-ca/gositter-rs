@@ -41,20 +41,16 @@ const TOK_END_STR: usize = 15;
 impl Scanner {
     // tree_sitter_julia_external_scanner_create
     pub fn new() -> Self {
-        todo!()
+        Scanner
     }
 
     // tree_sitter_julia_external_scanner_serialize
-    pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = buf;
-        todo!()
+    pub fn serialize(&self, _buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        0
     }
 
     // tree_sitter_julia_external_scanner_deserialize
-    pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
-    }
+    pub fn deserialize(&mut self, _buf: &[u8]) {}
 }
 
 #[cfg(test)]

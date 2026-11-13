@@ -33,42 +33,34 @@ const TOK_DOLLAR: usize = 10;
 // and some glibc locales also accept non-ASCII letters and spaces.
 
 fn iswspace(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    c == 32 || (9..=13).contains(&c) // " ", \t..\r
 }
 
 fn iswalpha(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    (65..=90).contains(&c) || (97..=122).contains(&c) // A-Z, a-z
 }
 
 fn iswdigit(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    (48..=57).contains(&c) // 0-9
 }
 
 fn iswalnum(c: i32) -> bool {
-    let _ = c;
-    todo!()
+    iswalpha(c) || iswdigit(c)
 }
 
 impl Scanner {
     // tree_sitter_kotlin_external_scanner_create
     pub fn new() -> Self {
-        todo!()
+        Scanner
     }
 
     // tree_sitter_kotlin_external_scanner_serialize
-    pub fn serialize(&self, buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
-        let _ = buf;
-        todo!()
+    pub fn serialize(&self, _buf: &mut [u8; crate::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        0
     }
 
     // tree_sitter_kotlin_external_scanner_deserialize
-    pub fn deserialize(&mut self, buf: &[u8]) {
-        let _ = buf;
-        todo!()
-    }
+    pub fn deserialize(&mut self, _buf: &[u8]) {}
 }
 
 #[cfg(test)]

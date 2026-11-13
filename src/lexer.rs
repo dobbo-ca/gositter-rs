@@ -3,8 +3,8 @@
 //! current_included_range_index is 0, or 1 at end of input. The chunk fields are kept because
 //! ts_lexer__advance tests them: the "chunk" is `src[chunk_start..]`.
 
-use crate::length::Length;
-use crate::{Lexer, Logger};
+use crate::length::{LENGTH_UNDEFINED, Length, length_is_undefined};
+use crate::{Lexer, LogType, Logger};
 
 pub(crate) const BYTE_ORDER_MARK: i32 = 0xFEFF;
 /// TS_DECODE_ERROR
@@ -43,101 +43,400 @@ pub(crate) struct LexerState {
 
 impl<'s> Lexer<'s> {
     /// A lexer over `src` with the kept `state`: ts_lexer_set_input.
-    pub(crate) fn new(_src: &'s [u8], _state: LexerState) -> Lexer<'s> {
-        todo!("gositter-rs-2f0.6")
+    pub(crate) fn new(src: &'s [u8], state: LexerState) -> Lexer<'s> {
+        let mut l = Lexer {
+            lookahead: 0,
+            result_symbol: 0,
+            src,
+            state,
+        };
+        l.clear_chunk();
+        let position = l.state.current_position;
+        l.go_to(position);
+        l
+    }
+}
+
+/// Go `utf8.DecodeRune` on the start of `bytes` (not empty, first byte 0x80 or more):
+/// the code point and its width, or `(DECODE_ERROR, 1)` for an invalid or truncated
+/// sequence. Rust's UTF-8 check rejects the same sequences as Go's: overlongs, surrogates,
+/// values above U+10FFFF, bad continuation bytes.
+fn decode_rune(bytes: &[u8]) -> (i32, u32) {
+    let head = &bytes[..bytes.len().min(4)];
+    let valid = match std::str::from_utf8(head) {
+        Ok(s) => s,
+        Err(e) => std::str::from_utf8(&head[..e.valid_up_to()]).unwrap_or_default(),
+    };
+    match valid.chars().next() {
+        Some(c) => (c as i32, c.len_utf8() as u32),
+        None => (DECODE_ERROR, 1),
     }
 }
 
 impl Lexer<'_> {
     /// The state to keep until the next parse.
     pub(crate) fn into_state(self) -> LexerState {
-        todo!("gositter-rs-2f0.6")
+        self.state
     }
 
     /// The C LOG macro of lexer.c.
-    pub(crate) fn log_character(&mut self, _message: &str) {
-        todo!("gositter-rs-2f0.6")
+    pub(crate) fn log_character(&mut self, message: &str) {
+        let st = &mut self.state;
+        let buf = &mut st.debug_buf;
+        buf.clear();
+        buf.extend_from_slice(message.as_bytes());
+        let c = self.lookahead;
+        if (32..127).contains(&c) {
+            buf.extend_from_slice(b" character:'");
+            buf.push(c as u8);
+            buf.push(b'\'');
+        } else {
+            buf.extend_from_slice(b" character:");
+            buf.extend_from_slice(c.to_string().as_bytes());
+        }
+        if let Some(logger) = st.logger.as_mut() {
+            logger(LogType::Lex, buf);
+        }
     }
 
     /// ts_lexer__set_column_data
-    pub(crate) fn set_column_data(&mut self, _value: u32) {
-        todo!("gositter-rs-2f0.6")
+    pub(crate) fn set_column_data(&mut self, value: u32) {
+        self.state.column_data = ColumnData { value, valid: true };
     }
 
     /// ts_lexer__increment_column_data
     pub(crate) fn increment_column_data(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        if self.state.column_data.valid {
+            self.state.column_data.value += 1;
+        }
     }
 
     /// ts_lexer__invalidate_column_data
     pub(crate) fn invalidate_column_data(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        self.state.column_data = ColumnData {
+            value: 0,
+            valid: false,
+        };
     }
 
     /// ts_lexer__eof
     pub fn eof(&self) -> bool {
-        todo!("gositter-rs-2f0.6")
+        self.state.current_included_range_index == INCLUDED_RANGE_COUNT
     }
 
     /// ts_lexer__clear_chunk
     pub(crate) fn clear_chunk(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        self.state.has_chunk = false;
+        self.state.chunk_size = 0;
+        self.state.chunk_start = 0;
     }
 
     /// ts_lexer__get_chunk, with ts_string_input_read as the callback.
     pub(crate) fn get_chunk(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        let st = &mut self.state;
+        st.chunk_start = st.current_position.bytes;
+        // Go compares with uint32(len(src)): a source of 4 GiB or more wraps, as there.
+        let src_len = self.src.len() as u32;
+        if st.current_position.bytes >= src_len {
+            st.chunk_size = 0;
+            st.current_included_range_index = INCLUDED_RANGE_COUNT;
+            st.has_chunk = false;
+        } else {
+            st.chunk_size = src_len - st.current_position.bytes;
+            st.has_chunk = true;
+        }
     }
 
     /// ts_lexer__get_lookahead, UTF-8 only.
     pub(crate) fn get_lookahead(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        let position_in_chunk = self
+            .state
+            .current_position
+            .bytes
+            .wrapping_sub(self.state.chunk_start);
+        let size = self.state.chunk_size.wrapping_sub(position_in_chunk);
+
+        if size == 0 {
+            self.state.lookahead_size = 1;
+            self.lookahead = 0;
+            return;
+        }
+
+        let chunk = &self.src[self.state.current_position.bytes as usize..];
+        let c = chunk[0];
+        if c < 0x80 {
+            self.state.lookahead_size = 1;
+            self.lookahead = c as i32;
+            return;
+        }
+
+        let (r, n) = decode_rune(chunk);
+        if r == DECODE_ERROR {
+            // C fetches a fresh chunk here when fewer than 4 bytes remain and decodes
+            // again. The input is contiguous, so only chunk_start moves.
+            if size < 4 {
+                self.get_chunk();
+            }
+            self.lookahead = DECODE_ERROR;
+            self.state.lookahead_size = 1;
+            return;
+        }
+        self.lookahead = r;
+        self.state.lookahead_size = n;
     }
 
     /// ts_lexer_goto
-    pub(crate) fn go_to(&mut self, _position: Length) {
-        todo!("gositter-rs-2f0.6")
+    pub(crate) fn go_to(&mut self, position: Length) {
+        if position.bytes != self.state.current_position.bytes {
+            self.invalidate_column_data();
+        }
+
+        let st = &mut self.state;
+        st.current_position = position;
+
+        // The range loop: the default range ends at UINT32_MAX, so it is always found. Its
+        // start is byte 0, point (0,0).
+        if st.current_position.bytes == 0 {
+            st.current_position = Length::default();
+        }
+        st.current_included_range_index = 0;
+
+        if st.has_chunk
+            && (st.current_position.bytes < st.chunk_start
+                || st.current_position.bytes >= st.chunk_start + st.chunk_size)
+        {
+            self.clear_chunk();
+        }
+
+        self.state.lookahead_size = 0;
+        self.lookahead = 0;
     }
 
-    /// ts_lexer__advance, with ts_lexer__do_advance folded in.
-    pub fn advance(&mut self, _skip: bool) {
-        todo!("gositter-rs-2f0.6")
+    /// ts_lexer__advance, with ts_lexer__do_advance folded in: the lex functions call this
+    /// once per character, and one call is cheaper than two.
+    pub fn advance(&mut self, skip: bool) {
+        if !self.state.has_chunk {
+            return;
+        }
+
+        if self.state.logger.is_some() {
+            self.log_character(if skip { "skip" } else { "consume" });
+        }
+
+        // ts_lexer__do_advance
+        let st = &mut self.state;
+        if st.lookahead_size != 0 {
+            if self.lookahead == '\n' as i32 {
+                st.current_position.extent.row += 1;
+                st.current_position.extent.column = 0;
+                st.column_data = ColumnData {
+                    value: 0,
+                    valid: true,
+                };
+            } else {
+                let is_bom = st.current_position.bytes == 0 && self.lookahead == BYTE_ORDER_MARK;
+                if !is_bom && st.column_data.valid {
+                    st.column_data.value += 1;
+                }
+                st.current_position.extent.column += st.lookahead_size;
+            }
+            st.current_position.bytes += st.lookahead_size;
+        }
+
+        // The loop that steps to the next included range is dead: the position never
+        // reaches the default range's end_byte of UINT32_MAX.
+
+        if skip {
+            st.token_start_position = st.current_position;
+        }
+
+        // One unsigned compare for "inside the chunk". There, an ASCII byte is
+        // ts_lexer__get_lookahead's whole answer, so the call is skipped.
+        let pos = st.current_position.bytes;
+        if pos.wrapping_sub(st.chunk_start) < st.chunk_size {
+            let c = self.src[pos as usize];
+            if c < 0x80 {
+                st.lookahead_size = 1;
+                self.lookahead = c as i32;
+                return;
+            }
+        } else {
+            self.get_chunk();
+        }
+        self.get_lookahead();
     }
 
     /// `advance(skip)` repeated while `lookahead` is an ASCII character in `set`
     /// (gositter CONTRACT.md section 6, self-loops). `set[0]` and `set[128..]` are false.
-    pub fn advance_run(&mut self, _set: &'static [bool; 256], _skip: bool) {
-        todo!("gositter-rs-2f0.6")
+    pub fn advance_run(&mut self, set: &'static [bool; 256], skip: bool) {
+        let pos = self.state.current_position.bytes;
+        if self.state.logger.is_some()
+            || self.state.lookahead_size != 1
+            || pos.wrapping_sub(self.state.chunk_start) >= self.state.chunk_size
+        {
+            // Logging wants one message per character.
+            while (self.lookahead as u32) < 128
+                && set[self.lookahead as usize]
+                && self.state.has_chunk
+            {
+                self.advance(skip);
+            }
+            return;
+        }
+
+        // Inside the chunk with a one-byte lookahead, lookahead is src[pos] or a decode
+        // error, and a byte of 0x80 or more ends the run.
+        let src = self.src;
+        let mut end = pos;
+        let (mut rows, mut line_start) = (0u32, pos);
+        while (end as usize) < src.len() && set[src[end as usize] as usize] {
+            if src[end as usize] == b'\n' {
+                rows += 1;
+                line_start = end + 1;
+            }
+            end += 1;
+        }
+        if end == pos {
+            return;
+        }
+
+        // What ts_lexer__do_advance adds up one character at a time.
+        let st = &mut self.state;
+        if rows > 0 {
+            st.current_position.extent.row += rows;
+            st.current_position.extent.column = end - line_start;
+            st.column_data = ColumnData {
+                value: end - line_start,
+                valid: true,
+            };
+        } else {
+            st.current_position.extent.column += end - pos;
+            if st.column_data.valid {
+                st.column_data.value += end - pos;
+            }
+        }
+        st.current_position.bytes = end;
+
+        if skip {
+            st.token_start_position = st.current_position;
+        }
+
+        if end.wrapping_sub(st.chunk_start) < st.chunk_size {
+            let c = src[end as usize];
+            if c < 0x80 {
+                st.lookahead_size = 1;
+                self.lookahead = c as i32;
+                return;
+            }
+        } else {
+            self.get_chunk();
+        }
+        self.get_lookahead();
     }
 
     /// ts_lexer__mark_end
     pub fn mark_end(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        // The included range boundary case needs a range index above 0: dead here.
+        self.state.token_end_position = self.state.current_position;
     }
 
     /// ts_lexer__get_column: code points since the start of the line.
     pub fn get_column(&mut self) -> u32 {
-        todo!("gositter-rs-2f0.6")
+        self.state.did_get_column = true;
+
+        if !self.state.column_data.valid {
+            let goal_byte = self.state.current_position.bytes;
+
+            // Back up to the beginning of the line.
+            let cur = self.state.current_position;
+            let start_of_col = Length {
+                bytes: cur.bytes - cur.extent.column,
+                extent: crate::Point {
+                    row: cur.extent.row,
+                    column: 0,
+                },
+            };
+            self.go_to(start_of_col);
+            self.set_column_data(0);
+            self.get_chunk();
+
+            if !self.eof() {
+                self.get_lookahead();
+
+                // C calls ts_lexer__do_advance, which does not log.
+                let logger = self.state.logger.take();
+                while self.state.current_position.bytes < goal_byte
+                    && !self.eof()
+                    && self.state.has_chunk
+                {
+                    self.advance(false);
+                    if self.eof() {
+                        break;
+                    }
+                }
+                self.state.logger = logger;
+            }
+        }
+
+        self.state.column_data.value
     }
 
     /// ts_lexer__is_at_included_range_start
     pub fn is_at_included_range_start(&self) -> bool {
-        todo!("gositter-rs-2f0.6")
+        self.state.current_included_range_index < INCLUDED_RANGE_COUNT
+            && self.state.current_position.bytes == 0
     }
 
     /// ts_lexer_reset
-    pub(crate) fn reset(&mut self, _position: Length) {
-        todo!("gositter-rs-2f0.6")
+    pub(crate) fn reset(&mut self, position: Length) {
+        if position.bytes != self.state.current_position.bytes {
+            self.go_to(position);
+        }
     }
 
     /// ts_lexer_start
     pub(crate) fn start(&mut self) {
-        todo!("gositter-rs-2f0.6")
+        self.state.token_start_position = self.state.current_position;
+        self.state.token_end_position = LENGTH_UNDEFINED;
+        self.result_symbol = 0;
+        self.state.did_get_column = false;
+        if !self.eof() {
+            if self.state.chunk_size == 0 {
+                self.get_chunk();
+            }
+            if self.state.lookahead_size == 0 {
+                self.get_lookahead();
+            }
+            if self.state.current_position.bytes == 0 {
+                if self.lookahead == BYTE_ORDER_MARK {
+                    self.advance(true);
+                }
+                self.set_column_data(0);
+            }
+        }
     }
 
     /// ts_lexer_finish
-    pub(crate) fn finish(&mut self, _lookahead_end_byte: &mut u32) {
-        todo!("gositter-rs-2f0.6")
+    pub(crate) fn finish(&mut self, lookahead_end_byte: &mut u32) {
+        if length_is_undefined(self.state.token_end_position) {
+            self.mark_end();
+        }
+
+        // Only true at an included range boundary; kept as written.
+        if self.state.token_end_position.bytes < self.state.token_start_position.bytes {
+            self.state.token_start_position = self.state.token_end_position;
+        }
+
+        let mut current_lookahead_end_byte = self.state.current_position.bytes + 1;
+
+        // The decoder may have looked at up to 4 bytes to call a sequence invalid.
+        if self.lookahead == DECODE_ERROR {
+            current_lookahead_end_byte += 4;
+        }
+
+        if current_lookahead_end_byte > *lookahead_end_byte {
+            *lookahead_end_byte = current_lookahead_end_byte;
+        }
     }
 }
 
@@ -145,7 +444,7 @@ impl Lexer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LogType, Point};
+    use crate::Point;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -166,7 +465,6 @@ mod tests {
     type DecodeCase<'a> = (&'a str, &'a [u8], &'a [(i32, u32)]);
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_decode() {
         let bad = (DECODE_ERROR, 1);
         let cases: &[DecodeCase<'_>] = &[
@@ -221,7 +519,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_advance_after_eof() {
         let logged = Arc::new(AtomicUsize::new(0));
         let mut l = new_test_lexer(b"x");
@@ -241,7 +538,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_empty_input() {
         let l = new_test_lexer(b"");
         assert!(l.eof());
@@ -250,7 +546,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_bom_and_positions() {
         let mut l = new_test_lexer("\u{feff}a\néb".as_bytes());
         // The BOM is skipped by start: token start moves past it.
@@ -275,7 +570,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_is_at_included_range_start() {
         let mut l = new_test_lexer(b"ab");
         assert!(l.is_at_included_range_start(), "want true at byte 0");
@@ -284,7 +578,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_finish() {
         let mut l = new_test_lexer(b"ab");
         l.advance(false);
@@ -302,7 +595,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn lexer_reset_backwards() {
         let mut l = new_test_lexer(b"abc");
         l.advance(false);
@@ -391,7 +683,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn advance_run() {
         let ident = set_of(|c| c == b'_' || c.is_ascii_digit() || c.is_ascii_lowercase());
         let blank = set_of(|c| c == b' ' || (b'\t'..=b'\r').contains(&c));
@@ -426,7 +717,6 @@ mod tests {
 
     /// gositter `FuzzAdvanceRun` as a seeded loop (the fuzz target is plan Task 13).
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn advance_run_random() {
         let sets = [
             set_of(|c| c == b' ' || (b'\t'..=b'\r').contains(&c)),

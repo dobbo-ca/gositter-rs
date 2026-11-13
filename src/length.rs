@@ -16,28 +16,56 @@ pub(crate) const LENGTH_UNDEFINED: Length = Length {
 };
 
 /// length_is_undefined
-pub(crate) fn length_is_undefined(_l: Length) -> bool {
-    todo!("gositter-rs-2f0.6")
+pub(crate) fn length_is_undefined(l: Length) -> bool {
+    l.bytes == 0 && l.extent.column != 0
 }
 
 /// point_add
-pub(crate) fn point_add(_a: Point, _b: Point) -> Point {
-    todo!("gositter-rs-2f0.6")
+pub(crate) fn point_add(a: Point, b: Point) -> Point {
+    if b.row > 0 {
+        Point {
+            row: a.row + b.row,
+            column: b.column,
+        }
+    } else {
+        Point {
+            row: a.row,
+            column: a.column + b.column,
+        }
+    }
 }
 
 /// point_sub
-pub(crate) fn point_sub(_a: Point, _b: Point) -> Point {
-    todo!("gositter-rs-2f0.6")
+pub(crate) fn point_sub(a: Point, b: Point) -> Point {
+    if a.row > b.row {
+        Point {
+            row: a.row - b.row,
+            column: a.column,
+        }
+    } else if a.column >= b.column {
+        Point {
+            row: 0,
+            column: a.column - b.column,
+        }
+    } else {
+        Point { row: 0, column: 0 }
+    }
 }
 
 /// length_add
-pub(crate) fn length_add(_a: Length, _b: Length) -> Length {
-    todo!("gositter-rs-2f0.6")
+pub(crate) fn length_add(a: Length, b: Length) -> Length {
+    Length {
+        bytes: a.bytes + b.bytes,
+        extent: point_add(a.extent, b.extent),
+    }
 }
 
 /// length_sub
-pub(crate) fn length_sub(_a: Length, _b: Length) -> Length {
-    todo!("gositter-rs-2f0.6")
+pub(crate) fn length_sub(a: Length, b: Length) -> Length {
+    Length {
+        bytes: a.bytes.saturating_sub(b.bytes),
+        extent: point_sub(a.extent, b.extent),
+    }
 }
 
 #[cfg(test)]
@@ -49,7 +77,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "gositter-rs-2f0.6"]
     fn point_and_length_arithmetic() {
         // length.h and point.h, as gositter length.go.
         assert_eq!(point_add(p(1, 4), p(0, 3)), p(1, 7));

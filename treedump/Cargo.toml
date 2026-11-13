@@ -8,6 +8,7 @@ description = "Port of gositter's internal/treedump: the tree dump format of the
 publish = false
 
 [dependencies]
+gositter = { path = ".." }
 
 [lints.rust]
 unsafe_code = "deny"

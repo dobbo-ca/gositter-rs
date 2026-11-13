@@ -18,31 +18,30 @@ const H0: [u32; 8] = [
 /// The SHA-256 digest of `data`.
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     let mut h = H0;
-    let mut blocks = data.chunks_exact(64);
-    for b in &mut blocks {
+    let (blocks, rest) = data.as_chunks::<64>();
+    for b in blocks {
         compress(&mut h, b);
     }
     // Padding: 0x80, zeros, then the bit length as a big-endian u64; one or two more blocks.
-    let rest = blocks.remainder();
     let mut tail = [0u8; 128];
     tail[..rest.len()].copy_from_slice(rest);
     tail[rest.len()] = 0x80;
     let n = if rest.len() < 56 { 64 } else { 128 };
     tail[n - 8..n].copy_from_slice(&((data.len() as u64) * 8).to_be_bytes());
-    for b in tail[..n].chunks_exact(64) {
+    for b in tail[..n].as_chunks::<64>().0 {
         compress(&mut h, b);
     }
     let mut out = [0u8; 32];
-    for (o, v) in out.chunks_exact_mut(4).zip(h) {
-        o.copy_from_slice(&v.to_be_bytes());
+    for (o, v) in out.as_chunks_mut::<4>().0.iter_mut().zip(h) {
+        *o = v.to_be_bytes();
     }
     out
 }
 
-fn compress(h: &mut [u32; 8], block: &[u8]) {
+fn compress(h: &mut [u32; 8], block: &[u8; 64]) {
     let mut w = [0u32; 64];
-    for (wi, c) in w.iter_mut().zip(block.chunks_exact(4)) {
-        *wi = u32::from_be_bytes([c[0], c[1], c[2], c[3]]);
+    for (wi, c) in w.iter_mut().zip(block.as_chunks::<4>().0) {
+        *wi = u32::from_be_bytes(*c);
     }
     for i in 16..64 {
         let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);

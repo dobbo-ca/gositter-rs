@@ -43,9 +43,9 @@ impl Scanner {
         for (d, c) in self
             .delimiter
             .iter_mut()
-            .zip(buf.chunks_exact(SIZEOF_WCHAR))
+            .zip(buf.as_chunks::<SIZEOF_WCHAR>().0)
         {
-            *d = i32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+            *d = i32::from_le_bytes(*c);
         }
     }
 }

@@ -306,7 +306,7 @@ pub fn check_language(g: &mut Grammar) -> Result<LangInfo, GenError> {
     let syms = l.n("symbol_count") + l.n("alias_count");
     let prod = l.n("production_id_count");
     l.want = HashMap::from([
-        ("ParseTable", large * l.n("symbol_count")),
+        ("ParseTable", large.wrapping_mul(l.n("symbol_count"))),
         ("SmallParseTableMap", states - large),
         ("SymbolNames", syms),
         ("SymbolMetadata", syms),

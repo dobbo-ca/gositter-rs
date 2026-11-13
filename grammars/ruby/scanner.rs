@@ -869,10 +869,12 @@ impl Scanner {
                     }
                     return true;
                 }
-                self.literal_stack[top].nesting_depth -= 1;
+                self.literal_stack[top].nesting_depth =
+                    self.literal_stack[top].nesting_depth.wrapping_sub(1);
                 lexer.advance(false);
             } else if lexer.lookahead == open_delimiter {
-                self.literal_stack[top].nesting_depth += 1;
+                self.literal_stack[top].nesting_depth =
+                    self.literal_stack[top].nesting_depth.wrapping_add(1);
                 lexer.advance(false);
             } else if allows_interpolation && lexer.lookahead == ch('#') {
                 lexer.mark_end();

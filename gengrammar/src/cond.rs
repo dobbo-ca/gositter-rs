@@ -90,7 +90,7 @@ fn breakpoints(c: &Cond, sets: &HashMap<String, Vec<(i32, i32)>>, out: &mut Vec<
         Cond::Cmp(_, a, b) => {
             for o in [a, b] {
                 if let Operand::Lit(v) = o {
-                    out.extend([*v, v + 1]);
+                    out.extend([*v, v.saturating_add(1)]);
                 }
             }
         }

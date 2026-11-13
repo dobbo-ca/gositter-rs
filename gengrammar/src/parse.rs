@@ -32,7 +32,7 @@ pub struct Table {
 impl Table {
     pub fn width(&self) -> usize {
         let w = self.fields.map_or(0, |f| f.len()).max(1);
-        self.dims[1..].iter().fold(w, |w, d| w * d)
+        self.dims[1..].iter().fold(w, |w, &d| w.wrapping_mul(d))
     }
 
     pub fn len(&self) -> usize {
@@ -474,7 +474,11 @@ impl Parser<'_> {
         } else if struct_fields(&t.ctype).is_some() || SCALAR_TYPES.contains(&t.ctype.as_str()) {
             t.fields = struct_fields(&t.ctype);
             let dims = t.dims.clone();
-            t.vals = vec![0; dims[0] * t.width()];
+            let n = (dims[0] as i64).wrapping_mul(t.width() as i64);
+            if n < 0 {
+                return self.fail(format!("{}: table size overflows", t.name));
+            }
+            t.vals = vec![0; n as usize];
             self.init(&mut t, 0, &dims)?;
         } else {
             return self.fail(format!("{}: unknown element type {}", t.name, t.ctype));
@@ -487,9 +491,13 @@ impl Parser<'_> {
 
     /// Reads one initialiser into `t.vals[off..]`. Like C, a designator moves the cursor and the
     /// items after it continue from there.
-    fn init(&mut self, t: &mut Table, off: usize, dims: &[usize]) -> R<()> {
+    fn init(&mut self, t: &mut Table, off: i64, dims: &[usize]) -> R<()> {
         if dims.is_empty() && t.fields.is_none() {
-            t.vals[off] = self.expr()?;
+            let v = self.expr()?;
+            let Some(s) = usize::try_from(off).ok().and_then(|o| t.vals.get_mut(o)) else {
+                return self.fail(format!("{}: index out of range", t.name));
+            };
+            *s = v;
             return Ok(());
         }
         self.expect(&["{"])?;
@@ -511,14 +519,25 @@ impl Parser<'_> {
                 if fi >= fields.len() {
                     return self.fail(format!("too many initialisers for {}", t.ctype));
                 }
-                t.vals[off + fi] = self.expr()?;
+                let v = self.expr()?;
+                let Some(s) = usize::try_from(off.wrapping_add(fi as i64))
+                    .ok()
+                    .and_then(|o| t.vals.get_mut(o))
+                else {
+                    return self.fail(format!("{}: index out of range", t.name));
+                };
+                *s = v;
                 if !self.comma("}")? {
                     return Ok(());
                 }
                 fi += 1;
             }
         }
-        let stride = t.fields.map_or(0, |f| f.len()).max(1) * dims[1..].iter().product::<usize>();
+        let stride = dims[1..]
+            .iter()
+            .fold(t.fields.map_or(0, |f| f.len()).max(1), |s, &d| {
+                s.wrapping_mul(d)
+            }) as i64;
         let mut idx = 0i64;
         loop {
             if self.accept("[")? {
@@ -528,15 +547,15 @@ impl Parser<'_> {
             if idx < 0 || dims[0] != 0 && idx as usize >= dims[0] {
                 return self.fail(format!("{}: index {idx} out of range", t.name));
             }
-            let idx_u = idx as usize;
-            if t.vals.len() < off + (idx_u + 1) * stride {
-                t.vals.resize(off + (idx_u + 1) * stride, 0);
+            let need = off.wrapping_add(idx.wrapping_add(1).wrapping_mul(stride));
+            if (t.vals.len() as i64) < need {
+                t.vals.resize(need as usize, 0);
             }
-            self.init(t, off + idx_u * stride, &dims[1..])?;
+            self.init(t, off.wrapping_add(idx.wrapping_mul(stride)), &dims[1..])?;
             if !self.comma("}")? {
                 return Ok(());
             }
-            idx += 1;
+            idx = idx.wrapping_add(1);
         }
     }
 
@@ -645,11 +664,18 @@ impl Parser<'_> {
                     _ => return self.fail(format!("unknown parse action {name}")),
                 }
             }
-            let idx_u = idx as usize;
-            if self.g.actions.len() < (idx_u + 1) * 5 {
-                self.g.actions.resize((idx_u + 1) * 5, 0);
+            let need = idx.wrapping_add(1).wrapping_mul(5);
+            if (self.g.actions.len() as i64) < need {
+                self.g.actions.resize(need as usize, 0);
             }
-            self.g.actions[idx_u * 5..idx_u * 5 + 5].copy_from_slice(&a);
+            let start = idx.wrapping_mul(5);
+            let Some(dst) = usize::try_from(start)
+                .ok()
+                .and_then(|s| self.g.actions.get_mut(s..s.wrapping_add(5)))
+            else {
+                return self.fail("parse action index out of range");
+            };
+            dst.copy_from_slice(&a);
             if !self.comma("}")? {
                 break;
             }
@@ -781,7 +807,7 @@ impl Parser<'_> {
     /// precedence in both languages. What Go refuses at evaluation time is refused here.
     fn lex_cond(&mut self) -> R<Cond> {
         let mut items = vec![];
-        let mut depth = 1;
+        let mut depth: i64 = 1;
         let close_pos = loop {
             let t = self.tok.clone();
             self.next()?;
@@ -877,7 +903,7 @@ impl Parser<'_> {
 
     fn lang_fields(&mut self, prefix: &str) -> R<()> {
         self.expect(&["{"])?;
-        let mut i = 0;
+        let mut i: i64 = 0;
         while !self.accept("}")? {
             let mut key = format!("{prefix}{i}");
             if self.accept(".")? {
@@ -888,7 +914,7 @@ impl Parser<'_> {
                 self.lang_fields(&format!("{key}."))?;
             } else {
                 let mut toks = vec![];
-                let mut depth = 0;
+                let mut depth: i64 = 0;
                 while depth > 0 || !self.is(",") && !self.is("}") {
                     if self.tok.tok == Tok::Eof {
                         return self.fail("unterminated TSLanguage initialiser");

@@ -19,12 +19,11 @@ pub const UNSIGNED: bool = cfg!(all(
 ));
 
 /// `CHAR_MAX`.
-pub const MAX: i32 = 0; // red: replaced by the port
+pub const MAX: i32 = if UNSIGNED { 255 } else { 127 };
 
 /// A `char` read back as an int, as C's integer promotion gives it.
 pub fn value(b: u8) -> i32 {
-    let _ = b;
-    todo!()
+    if UNSIGNED { b as i32 } else { b as i8 as i32 }
 }
 
 #[cfg(test)]

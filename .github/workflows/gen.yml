@@ -2,9 +2,10 @@ name: gen
 on: { workflow_dispatch: {} }
 permissions:
   contents: read
-# Main runs are never cancelled or replaced; a PR run replaces the older run of the same PR.
+# One group per ref, as ci.yml: a started main run always finishes, only the newest pending main
+# run is kept, and a PR run cancels its older run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   # Regenerates the grammar tables from the parser.c files pinned in grammars/grammars.lock and

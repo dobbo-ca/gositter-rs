@@ -96,7 +96,7 @@ struct Dumper<'a, N: DumpNode> {
     max_depth: usize,
     /// Per-depth scratch rows, reused.
     kids: Vec<Vec<N>>,
-    kfield: Vec<Vec<Option<&'static str>>>,
+    kfield: Vec<Vec<Option<&'a str>>>,
 }
 
 /// `start:end:"kind"`, or `nil`.
@@ -176,7 +176,7 @@ impl<N: DumpNode> Dumper<'_, N> {
             let _ = write!(w, " CURSORKIDS={}", kids.len());
         }
 
-        if (depth <= 64 && index_in_parent <= 256) || ordinal % 101 == 0 {
+        if (depth <= 64 && index_in_parent <= 256) || ordinal.is_multiple_of(101) {
             match (n.parent(), parent) {
                 (None, None) => {}
                 (Some(p), Some(q)) if p.same(q) => w.push_str(" P=ok"),
@@ -189,7 +189,7 @@ impl<N: DumpNode> Dumper<'_, N> {
 
         for &f in &self.fields {
             let c = n.by_field(f);
-            let in_cursor = kfield.iter().any(|kf| *kf == Some(f));
+            let in_cursor = kfield.contains(&Some(f));
             if c.is_none() && !in_cursor {
                 continue;
             }
@@ -387,7 +387,7 @@ const NOT_PRINT: &[(u32, u32)] = &[
 /// tree would be quadratic. Both sides sample the same nodes.
 #[doc(hidden)]
 pub fn sampled(i: u32, n: u32) -> bool {
-    n <= 256 || i < 128 || i >= n - 64 || i % 257 == 0
+    n <= 256 || i < 128 || i >= n - 64 || i.is_multiple_of(257)
 }
 
 /// gositter `gs.go`.

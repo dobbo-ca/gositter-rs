@@ -69,7 +69,6 @@ fn built_tree(lang: &'static Language) -> Tree {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.10"]
 fn node_api_built_tree() {
     let lang = test_language();
     let tree = built_tree(lang);
@@ -171,7 +170,6 @@ fn node_api_built_tree() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.10"]
 fn cursor_built_tree() {
     let lang = test_language();
     let tree = built_tree(lang);
@@ -233,7 +231,6 @@ fn cursor_built_tree() {
 /// Review Focus 2: preorder, preorder_mask and children keep their own stack, so a chain
 /// far deeper than a 512 KiB thread stack could recurse through is walked.
 #[test]
-#[ignore = "gositter-rs-2f0.10"]
 fn preorder_deep_small_stack() {
     const DEPTH: u32 = 100_000;
     std::thread::Builder::new()

@@ -1,12 +1,12 @@
 //! gositter `export_test.go`: hooks into the runtime's internals for the integration tests
 //! and the fuzz targets. Not part of the API.
 
-use crate::length::length_add;
+use crate::length::{Length, length_add};
 use crate::subtree::{
     ERROR_COST_PER_RECOVERY, ERROR_COST_PER_SKIPPED_CHAR, ERROR_COST_PER_SKIPPED_LINE,
-    ERROR_COST_PER_SKIPPED_TREE, F_DEPENDS_ON_COLUMN, F_FRAGILE_LEFT, F_FRAGILE_RIGHT,
+    ERROR_COST_PER_SKIPPED_TREE, F_DEPENDS_ON_COLUMN, F_EXTRA, F_FRAGILE_LEFT, F_FRAGILE_RIGHT,
     F_HAS_EXTERNAL_SCANNER_STATE_CHANGE, F_HAS_EXTERNAL_TOKENS, F_HAS_REPEAT, F_NAMED, F_VISIBLE,
-    Subtree, SubtreeHeap, SubtreePool, TREE_STATE_NONE,
+    INL_EXTRA, INL_NAMED, INL_VISIBLE, Subtree, SubtreeHeap, SubtreePool, TREE_STATE_NONE,
 };
 use crate::{
     ExternalScanner, FieldId, Language, Node, Parser, SYMBOL_ERROR, SYMBOL_ERROR_REPEAT, StateId,
@@ -381,14 +381,190 @@ impl<'t> Node<'t> {
     /// ChildRef (`export_test.go:268`): `child` as it was with one loop for every node, the
     /// reference for the loop of a node with no alias sequence.
     #[doc(hidden)]
-    pub fn child_ref(self, _i: u32, _include_anonymous: bool) -> Option<Node<'t>> {
-        todo!("gositter-rs-2f0.10")
+    pub fn child_ref(self, mut child_index: u32, include_anonymous: bool) -> Option<Node<'t>> {
+        let tree = self.tree;
+        let sp = &tree.pool;
+        let lang = tree.language();
+        let mut result = self;
+        let mut did_descend = true;
+
+        while did_descend {
+            did_descend = false;
+
+            let t = result.subtree();
+            if t.is_inline() {
+                break;
+            }
+            let h = sp.ptr(t);
+            if h.child_count == 0 {
+                break;
+            }
+            let alias_sequence = lang.alias_sequence(u32::from(h.production_id));
+            let mut position = Length {
+                bytes: result.start_byte(),
+                extent: result.start_position(),
+            };
+            let mut structural_child_index = 0usize;
+            let mut index = 0u32;
+            let children = &sp.children[h.children as usize..(h.children + h.child_count) as usize];
+            for (i, &child) in children.iter().enumerate() {
+                let (padding, size, visible, named, extra, grandchild_count) = if child.is_inline()
+                {
+                    (
+                        sp.padding(child),
+                        sp.size(child),
+                        child.0 & INL_VISIBLE != 0,
+                        child.0 & INL_NAMED != 0,
+                        child.0 & INL_EXTRA != 0,
+                        0,
+                    )
+                } else {
+                    let c = sp.ptr(child);
+                    // ts_node__relevant_child_count
+                    let mut grandchild_count = 0;
+                    if c.child_count > 0 {
+                        grandchild_count = c.named_child_count;
+                        if include_anonymous {
+                            grandchild_count = c.visible_child_count;
+                        }
+                    }
+                    (
+                        c.padding,
+                        c.size,
+                        c.flags & F_VISIBLE != 0,
+                        c.flags & F_NAMED != 0,
+                        c.flags & F_EXTRA != 0,
+                        grandchild_count,
+                    )
+                };
+                let mut alias_symbol: Symbol = 0;
+                if !extra {
+                    if let Some(start) = alias_sequence {
+                        alias_symbol = lang
+                            .tables
+                            .alias_sequences
+                            .get(start + structural_child_index);
+                    }
+                    structural_child_index += 1;
+                }
+                if i > 0 {
+                    position = length_add(position, padding);
+                }
+                // ts_node__is_relevant
+                let mut relevant = visible && named;
+                if include_anonymous {
+                    relevant = visible || alias_symbol != 0;
+                } else if alias_symbol != 0 {
+                    relevant = lang.symbol_metadata(alias_symbol).named;
+                }
+                if relevant {
+                    if index == child_index {
+                        return Some(Node::node_new(
+                            tree,
+                            h.children + i as u32,
+                            position,
+                            alias_symbol,
+                        ));
+                    }
+                    index += 1;
+                } else {
+                    let grandchild_index = child_index.wrapping_sub(index);
+                    if grandchild_index < grandchild_count {
+                        did_descend = true;
+                        result =
+                            Node::node_new(tree, h.children + i as u32, position, alias_symbol);
+                        child_index = grandchild_index;
+                        break;
+                    }
+                    index += grandchild_count;
+                }
+                position = length_add(position, size);
+            }
+        }
+
+        None
     }
 
     /// ChildByFieldIDRef (`export_test.go:186`): ts_node_child_by_field_id as first ported,
     /// on the child iterator; the reference for `child_by_field_id`.
     #[doc(hidden)]
-    pub fn child_by_field_id_ref(self, _id: FieldId) -> Option<Node<'t>> {
-        todo!("gositter-rs-2f0.10")
+    pub fn child_by_field_id_ref(self, field_id: FieldId) -> Option<Node<'t>> {
+        let mut this = self;
+        'recur: loop {
+            if field_id == 0 || this.child_count() == 0 {
+                return None;
+            }
+
+            let tree = this.tree;
+            let sp = &tree.pool;
+            let lang = tree.language();
+            let entries = lang.tables.field_map_entries;
+            let (start, len) = lang.field_map(u32::from(sp.ptr(this.subtree()).production_id));
+            if len == 0 {
+                return None;
+            }
+            // Go's fieldMap slice is entries[lo..hi].
+            let (mut lo, mut hi) = (start, start + len);
+
+            // The field mappings are sorted by their field id. Scan all the mappings to find
+            // the ones for the given field id.
+            while entries.get(lo).field_id < field_id {
+                lo += 1;
+                if lo == hi {
+                    return None;
+                }
+            }
+            while entries.get(hi - 1).field_id > field_id {
+                hi -= 1;
+                if lo == hi {
+                    return None;
+                }
+            }
+
+            let mut iterator = this.iterate_children();
+            while let Some(child) = iterator.next() {
+                if !sp.extra(child.subtree()) {
+                    let index = iterator.structural_child_index - 1;
+                    if index < u32::from(entries.get(lo).child_index) {
+                        continue;
+                    }
+
+                    // Hidden nodes' fields are "inherited" by their visible parent.
+                    if entries.get(lo).inherited {
+                        // If this is the *last* possible child node for this field, then
+                        // perform a tail call to avoid recursion.
+                        if hi - lo == 1 {
+                            this = child;
+                            continue 'recur;
+                        }
+
+                        // Otherwise, descend into this child, but if it doesn't contain the
+                        // field, continue searching subsequent children.
+                        let result = child.child_by_field_id_ref(field_id);
+                        if result.is_some() {
+                            return result;
+                        }
+                        lo += 1;
+                        if lo == hi {
+                            return None;
+                        }
+                    } else if child.is_relevant(true) {
+                        return Some(child);
+                    } else if child.child_count() > 0 {
+                        // If the field refers to a hidden node with visible children, return
+                        // the first visible child.
+                        return child.child(0);
+                    } else {
+                        // Otherwise, continue searching subsequent children.
+                        lo += 1;
+                        if lo == hi {
+                            return None;
+                        }
+                    }
+                }
+            }
+
+            return None;
+        }
     }
 }

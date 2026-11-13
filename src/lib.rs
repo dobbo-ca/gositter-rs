@@ -12,8 +12,6 @@ mod language;
 mod length;
 #[allow(dead_code)]
 mod lexer;
-// Stubs until Task 10b.
-#[allow(dead_code)]
 mod node;
 mod parser;
 // The parser (plan Task 11) is the first user of subtree.rs's internals.
@@ -24,11 +22,9 @@ mod subtree;
 mod stack;
 #[cfg(test)]
 mod test_language;
-// Stubs until Task 10b.
+// Tree::empty and Tree::from_pool wait for the parser (plan Task 11).
 #[allow(dead_code)]
 mod tree;
-// Stubs until Task 10b.
-#[allow(dead_code)]
 mod tree_cursor;
 
 pub use api::*;

@@ -7,6 +7,7 @@
 //! gsdump log   <dir> <in> <out> <max-bytes> <out>/<file>.log: "L "/"P " + LOG message
 //! gsdump stall <dir> <in> <out> <max-bytes> <out>/<file>.stall: smallest max_stall, or none
 //! gsdump kinds <dir>                        Go strconv.Quote of each symbol name
+//! gsdump bench <dir> <in> <reps>            <file>\t<bytes>\t<best ns of reps parses>
 //! ```
 //!
 //! `<in>` is read flat: every regular file whose name does not end in `.dump` or `.dump.gz`,
@@ -131,6 +132,23 @@ fn kinds(dir: &str) {
     print!("{out}");
 }
 
+/// Parses each input `reps` times on one parser and prints the fastest parse (plan Task 14).
+fn bench(dir: &str, input: &Path, reps: usize) {
+    let mut p = parser(language(dir));
+    let mut out = String::new();
+    for name in inputs(input) {
+        let src = read(&input.join(&name));
+        let mut best = u128::MAX;
+        for _ in 0..reps {
+            let t = std::time::Instant::now();
+            p.parse(&src);
+            best = best.min(t.elapsed().as_nanos());
+        }
+        out.push_str(&format!("{name}\t{}\t{best}\n", src.len()));
+    }
+    print!("{out}");
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let limit = |s: &str| {
@@ -152,8 +170,9 @@ fn main() {
             ["log", d, i, o, m] => log(d, Path::new(i), Path::new(o), limit(m)),
             ["stall", d, i, o, m] => stall(d, Path::new(i), Path::new(o), limit(m)),
             ["kinds", d] => kinds(d),
+            ["bench", d, i, r] => bench(d, Path::new(i), limit(r)),
             _ => die(
-                "usage: gsdump list | dump <dir> <in> <out> | log|stall <dir> <in> <out> <max-bytes> | kinds <dir>",
+                "usage: gsdump list | dump <dir> <in> <out> | log|stall <dir> <in> <out> <max-bytes> | kinds <dir> | bench <dir> <in> <reps>",
             ),
         },
     );

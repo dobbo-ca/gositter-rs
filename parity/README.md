@@ -21,6 +21,8 @@ Plan: `docs/superpowers/plans/2026-11-13-runtime.md`.
 | gositter root package `Test` funcs | 53 | 0 | 5 | 0 |
 | gositter `Example` / `Benchmark` / `Fuzz` | 3 | 0 | 0 | 0 |
 | C goldens (`testdata/regress`) | 1,423 | 0 | 0 | 0 |
+| gositter `cmd/gengrammar` and `grammars/internal/cchar` tests | 3 | 3 | 0 | 3 |
+| gositter `grammars/<g>/scanner_test.go` and `reset_test.go` | 63 | 63 | 0 | 42 |
 
 "Ported" counts a test once it is in the tree (passing or `#[ignore = "<bead>"]`); "Passing" counts it once
 it runs green in the `test` job.
@@ -104,3 +106,38 @@ it runs green in the `test` job.
 | example_test.go | `Example` | `example_python` | `tests/example.rs` | to port (Task 5) |
 | parser_test.go | `BenchmarkParseJSON` | `gsdump bench json_2000` | `examples/gsdump.rs` | to port (Task 14) |
 | lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | to port (Tasks 6, 13) |
+
+## Grammar tests
+
+Plan: `docs/superpowers/plans/2026-11-13-grammars.md` (grammar stream). Scanner tests are unit tests in
+`grammars/<g>/scanner.rs`. Parser-level and reset tests need the runtime parser and `Language`, so they
+are in the tree but compiled out with `#[cfg(any())]` (bead `gositter-rs-vjz.12` turns them on);
+"Ported" counts them, "Passing" does not.
+
+| Source file | Tests | Ported | Passing | Not yet passing |
+|---|---|---|---|---|
+| `cmd/gengrammar/gengrammar_test.go` | 2 | 2 | 2 | |
+| `grammars/internal/cchar/cchar_test.go` | 1 | 1 | 1 | |
+| `bash/scanner_test.go` | 4 | 4 | 3 | `TestHeredocEndChar` (parser) |
+| `bash/reset_test.go` | 3 | 3 | 0 | parser; the hand-made half of `TestResetIsNew` runs as `reset_hand_made` |
+| `cpp/scanner_test.go` | 4 | 4 | 3 | `TestRawStrings` (parser) |
+| `cpp/reset_test.go` | 2 | 2 | 0 | parser |
+| `csharp/scanner_test.go` | 5 | 5 | 4 | `TestScanState` (parser) |
+| `hcl/scanner_test.go` | 3 | 3 | 3 | |
+| `hcl/reset_test.go` | 3 | 3 | 0 | parser |
+| `javascript/scanner_test.go` | 4 | 4 | 2 | `TestTokenOrder` (tables), `TestScanSmoke` (parser) |
+| `julia/scanner_test.go` | 3 | 3 | 1 | `TestLanguageWiresScanner` (tables), `TestParseScannerTokens` (parser) |
+| `kotlin/scanner_test.go` | 3 | 3 | 2 | `TestScan` (parser) |
+| `lua/scanner_test.go` | 3 | 3 | 2 | `TestLongBrackets` (parser) |
+| `php/scanner_test.go` | 4 | 4 | 4 | |
+| `python/scanner_test.go` | 3 | 3 | 3 | |
+| `python/reset_test.go` | 2 | 2 | 0 | parser |
+| `ruby/scanner_test.go` | 5 | 5 | 5 | |
+| `rust/scanner_test.go` | 2 | 2 | 2 | |
+| `scala/scanner_test.go` | 4 | 4 | 4 | |
+| `tsx/scanner_test.go` | 3 | 3 | 2 | `TestParse` (parser) |
+| `typescript/scanner_test.go` | 3 | 3 | 2 | `TestParse` (parser) |
+| **Total** | **66** | **66** | **45** | |
+
+Tests with no Go source are not counted: gengrammar's SHA-256 vectors, lock file, tokenizer and parser
+rejects (Tasks 1-3), and the oracle diffs of Tasks 6 and 8, which run in addition to the ported tests.

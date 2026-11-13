@@ -15,5 +15,5 @@ unsafe_code = "deny"
 # gengrammar (parser.c -> tables) and gositter-grammars (21 grammars) are owned by the grammar
 # stream; see docs/superpowers/plans/2026-11-13-grammars.md.
 [workspace]
-members = [".", "gengrammar", "grammars"]
+members = [".", "gengrammar", "grammars", "treedump"]
 resolver = "3"

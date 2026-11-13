@@ -9,6 +9,9 @@ version = "0.1.0"
 [[package]]
 name = "gositter"
 version = "0.1.0"
+dependencies = [
+ "gositter-treedump",
+]
 
 [[package]]
 name = "gositter-grammars"

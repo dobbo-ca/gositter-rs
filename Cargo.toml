@@ -1,0 +1,13 @@
+[package]
+name = "gositter"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+description = "Pure-Rust port of gositter v0.2.0, a pure-Go port of the tree-sitter v0.25.0 runtime, with 21 grammars."
+publish = false
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "deny"

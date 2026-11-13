@@ -146,12 +146,12 @@ mod tests {
     }
 }
 
-// gositter-rs-vjz.12: compiled when the runtime parser exists (Task 12).
-#[cfg(any())]
+#[cfg(test)]
 mod parser_tests {
-    use super::tests::serialize;
-    use super::*;
-    use std::{cell::RefCell, rc::Rc};
+    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
+    fn language() -> &'static gositter::Language {
+        unimplemented!("gositter-rs-vjz.10: generated language()")
+    }
 
     // Raw strings through the parser: the scanner is wired in and its tokens land where the C
     // grammar puts them. TestRawStrings (scanner_test.go)
@@ -176,12 +176,20 @@ mod parser_tests {
             (r#"auto s = R"x(abc"#, "(raw_string_content)"),
         ] {
             let mut p = gositter::Parser::new();
-            p.set_language(super::super::language());
-            let tree = p.parse(src.as_bytes());
-            let got = tree.root_node().to_string();
+            p.set_language(language()).unwrap();
+            let tree = p.parse(src.as_bytes()).unwrap();
+            let got = tree.root_node().to_sexp();
             assert!(got.contains(want), "{src}\n got {got}\nwant {want}");
         }
     }
+}
+
+// gositter-rs-vjz.12: needs impl ExternalScanner for Scanner (Task 12)
+#[cfg(any())]
+mod reset_tests {
+    use super::tests::serialize;
+    use super::*;
+    use std::{cell::RefCell, rc::Rc};
 
     const RESET_INPUTS: [&str; 9] = [
         "",

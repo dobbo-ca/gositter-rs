@@ -125,6 +125,13 @@ fn check(g: &str, fns: &[(&str, LexFn)]) {
     let mut lines = text.lines();
     let first = lines.next().expect("text line");
     let corpus: Rc<[i32]> = Rc::from(cps(first.strip_prefix("text ").expect("text prefix")));
+    // An empty corpus or no state lines would make the text check vacuous.
+    assert!(
+        corpus.len() >= 1_000,
+        "{g}: text corpus has only {} code points",
+        corpus.len()
+    );
+    let mut ntext = 0usize;
     for line in lines {
         let mut f = line.split(' ');
         let (name, state, want) = (
@@ -142,7 +149,9 @@ fn check(g: &str, fns: &[(&str, LexFn)]) {
             h, want,
             "{g}: {name} state {state} text: Go fold {want:016x}, Rust {h:016x}"
         );
+        ntext += 1;
     }
+    assert!(ntext >= fns.len(), "{g}: only {ntext} text lines");
 }
 
 #[test]

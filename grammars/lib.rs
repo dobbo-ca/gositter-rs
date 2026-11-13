@@ -15,7 +15,15 @@ pub mod golang;
 #[rustfmt::skip]
 pub mod java;
 #[rustfmt::skip]
+pub mod javascript;
+#[rustfmt::skip]
 pub mod json;
+#[rustfmt::skip]
+pub mod python;
+#[rustfmt::skip]
+pub mod tsx;
+#[rustfmt::skip]
+pub mod typescript;
 #[rustfmt::skip]
 pub mod verilog;
 #[rustfmt::skip]
@@ -37,9 +45,6 @@ mod csharp_scanner;
 #[path = "hcl/scanner.rs"]
 mod hcl_scanner;
 #[cfg(test)]
-#[path = "javascript/scanner.rs"]
-mod javascript_scanner;
-#[cfg(test)]
 #[path = "julia/scanner.rs"]
 mod julia_scanner;
 #[cfg(test)]
@@ -52,9 +57,6 @@ mod lua_scanner;
 #[path = "php/scanner.rs"]
 mod php_scanner;
 #[cfg(test)]
-#[path = "python/scanner.rs"]
-mod python_scanner;
-#[cfg(test)]
 #[path = "ruby/scanner.rs"]
 mod ruby_scanner;
 #[cfg(test)]
@@ -63,9 +65,3 @@ mod rust_scanner;
 #[cfg(test)]
 #[path = "scala/scanner.rs"]
 mod scala_scanner;
-#[cfg(test)]
-#[path = "tsx/scanner.rs"]
-mod tsx_scanner;
-#[cfg(test)]
-#[path = "typescript/scanner.rs"]
-mod typescript_scanner;

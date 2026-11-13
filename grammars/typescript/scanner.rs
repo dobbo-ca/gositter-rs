@@ -14,7 +14,7 @@ const TOK_ESCAPE_SEQUENCE: usize = 5;
 const TOK_REGEX_PATTERN: usize = 6;
 const TOK_JSX_TEXT: usize = 7;
 const TOK_FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON: usize = 8;
-#[allow(dead_code)] // used by scan (Task 12)
+#[allow(dead_code)] // C enum member; scan never reads it
 const TOK_ERROR_RECOVERY: usize = 9;
 
 // iswspace, iswalpha, iswdigit: no setlocale call anywhere, so libc is in the "C" locale. Measured
@@ -381,7 +381,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }

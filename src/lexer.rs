@@ -135,12 +135,14 @@ impl Lexer<'_> {
     pub(crate) fn get_chunk(&mut self) {
         let st = &mut self.state;
         st.chunk_start = st.current_position.bytes;
-        if st.current_position.bytes as usize >= self.src.len() {
+        // Go compares with uint32(len(src)): a source of 4 GiB or more wraps, as there.
+        let src_len = self.src.len() as u32;
+        if st.current_position.bytes >= src_len {
             st.chunk_size = 0;
             st.current_included_range_index = INCLUDED_RANGE_COUNT;
             st.has_chunk = false;
         } else {
-            st.chunk_size = self.src.len() as u32 - st.current_position.bytes;
+            st.chunk_size = src_len - st.current_position.bytes;
             st.has_chunk = true;
         }
     }

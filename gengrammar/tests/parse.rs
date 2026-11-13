@@ -242,7 +242,8 @@ fn every_struct_layout_is_known() {
 
 #[test]
 fn strings_with_designators_and_null() {
-    let g = parse("static const char * const n[4] = { [1] = \"a\\x00b\", NULL, [3] = \"c\", };");
+    let g =
+        parse("static const char * const n[4] = { [1] = \"a\\x00\\x62\", NULL, [3] = \"c\", };");
     assert_eq!(g.tables["n"].strs, ["", "a", "", "c"]);
     let g = parse("static const char * const n[] = { \"x\", \"y\" };");
     assert_eq!(g.tables["n"].strs, ["x", "y"]);

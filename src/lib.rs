@@ -17,6 +17,9 @@ mod parser;
 // The parser (plan Task 11) is the first user of subtree.rs's internals.
 #[allow(dead_code)]
 mod subtree;
+// The parser (plan Task 11) is the first user of stack.rs's internals.
+#[allow(dead_code)]
+mod stack;
 #[cfg(test)]
 mod test_language;
 mod tree;

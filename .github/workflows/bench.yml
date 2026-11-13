@@ -1,0 +1,36 @@
+name: bench
+on: { workflow_dispatch: {}, push: { branches: [main] } }
+permissions:
+  contents: read
+# One group per ref, as ci.yml (PR #30). There is no pull_request trigger: a new run waits for
+# the one before it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  # plan Task 14, from dobbo-ca/deflate-rs bench.yml. Not a required check. The Go and Rust
+  # parses run in one container, so the ratio compares the same machine.
+  bench:
+    runs-on: github-arc-runner-set
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { lfs: false }
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver: remote
+          endpoint: tcp://buildkitd.github-arc.svc.cluster.local:1234
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ci/Dockerfile
+          target: bench
+          load: true
+          push: false
+          tags: gositter-bench:local
+          cache-from: type=gha,scope=gositter-rs-bench
+          cache-to: type=gha,mode=max,scope=gositter-rs-bench
+      # docker run, not a RUN layer: a BuildKit cache hit would skip the timing.
+      - run: |
+          { echo '### Parse time, ms per MB of source (lower is better)'; echo
+            docker run --rm gositter-bench:local sh parity/bench.sh; } | tee -a "$GITHUB_STEP_SUMMARY"

@@ -205,3 +205,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
     sh ci/fresh.sh && cargo build --locked --release --target aarch64-unknown-linux-gnu --example gsdump \
     && cp target/aarch64-unknown-linux-gnu/release/examples/gsdump /usr/local/bin/gsdump-rs
 RUN sh ci/parity.sh "qemu-aarch64 /out/gsdump-arm64" "qemu-aarch64 -L /usr/aarch64-linux-gnu /usr/local/bin/gsdump-rs" /extra10
+
+# The bench (.github/workflows/bench.yml, plan Task 14): the Go and the Rust gsdump in one image,
+# so the ratio compares the same machine. bench.yml runs parity/bench.sh with `docker run`, so a
+# BuildKit cache hit cannot skip the timing.
+FROM src AS bench
+COPY --from=go-oracle /out/gsdump /usr/local/bin/gsdump-go
+RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/src/target,sharing=private \
+    sh ci/fresh.sh && cargo build --locked --release --example gsdump \
+    && cp target/release/examples/gsdump /usr/local/bin/gsdump-rs

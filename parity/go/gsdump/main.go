@@ -9,6 +9,7 @@
 //	gsdump stall <dir> <in> <out> <max-bytes> <out>/<file>.stall: smallest max_stall, or none
 //	gsdump kinds <dir>                        strconv.Quote of each symbol name
 //	gsdump gen   <in> <out>                   mutants of <in>/<dir>/<file> in <out>/<dir>
+//	gsdump bench <dir> <in> <reps>            <file>\t<bytes>\t<best ns of reps parses>
 //
 // <in> is read flat: every regular file whose name does not end in .dump or .dump.gz, in
 // name order, on one parser per command.
@@ -24,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dobbo-ca/gositter"
 	"github.com/dobbo-ca/gositter/grammars/bash"
@@ -240,6 +242,25 @@ func gen(in, out string) {
 	}
 }
 
+// bench parses each input reps times on one parser and prints the fastest parse (plan Task 14).
+func bench(dir, in string, reps int) {
+	p := parser(language(dir))
+	w := bufio.NewWriter(os.Stdout)
+	for _, name := range inputs(in) {
+		src := read(in, name)
+		best := int64(-1)
+		for i := 0; i < reps; i++ {
+			t := time.Now()
+			p.Parse(src)
+			if d := time.Since(t).Nanoseconds(); best < 0 || d < best {
+				best = d
+			}
+		}
+		fmt.Fprintf(w, "%s\t%d\t%d\n", name, len(src), best)
+	}
+	check(w.Flush())
+}
+
 func atoi(s string) int {
 	n, err := strconv.Atoi(s)
 	check(err)
@@ -268,7 +289,9 @@ func main() {
 		kinds(a[1])
 	case len(a) == 3 && a[0] == "gen":
 		gen(a[1], a[2])
+	case len(a) == 4 && a[0] == "bench":
+		bench(a[1], a[2], atoi(a[3]))
 	default:
-		die("usage: gsdump list | dump <dir> <in> <out> | log|stall <dir> <in> <out> <max-bytes> | kinds <dir> | gen <in> <out>")
+		die("usage: gsdump list | dump <dir> <in> <out> | log|stall <dir> <in> <out> <max-bytes> | kinds <dir> | gen <in> <out> | bench <dir> <in> <reps>")
 	}
 }

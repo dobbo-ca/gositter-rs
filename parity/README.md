@@ -24,6 +24,10 @@ C runtime through it:
 | `parity` | `ci/parity.sh`, both tools on amd64: trees of the regress inputs and all mutants, LOG lines (inputs up to 16 KiB), stall counts (up to 8 KiB), quoted kind names; `diff -r` per dir |
 | `parity-arm64` | `ci/parity.sh`, the aarch64 Rust tool and the arm64 Go tool under qemu-user: trees of the regress inputs and every 10th mutant |
 
+`gsdump bench` and `parity/bench.sh` time both tools in the `bench` stage (`.github/workflows/bench.yml`, on main
+and on dispatch): best of 5 runs of 20 parses per file, one row per grammar and one for `json_2000`. The table is
+in the run summary; the spec gate (Rust at most 1.10x of Go) is printed, not enforced.
+
 A dir that the Rust `gsdump list` does not have yet is printed as skipped. The `parity` and `parity-arm64`
 jobs run on main and on `workflow_dispatch`. A LOG difference with equal trees points at the runtime; a
 first difference in an `L` line inside an external scan points at the scanner.
@@ -120,7 +124,7 @@ it runs green in the `test` job.
 | Go file | Go test | Rust test | Rust file | Status |
 |---|---|---|---|---|
 | example_test.go | `Example` | `example_python` | `tests/example.rs` | ported, ignored until its grammar |
-| parser_test.go | `BenchmarkParseJSON` | `gsdump bench json_2000` | `examples/gsdump.rs` | to port (Task 14) |
+| parser_test.go | `BenchmarkParseJSON` | `gsdump bench`, row `json_2000` | `examples/gsdump.rs`, `parity/bench.sh` | ported; the table is in each `bench.yml` run summary |
 | lexer_test.go | `FuzzAdvanceRun` | `advance_run_random + fuzz target advance_run` | `src/lexer.rs, fuzz/` | `advance_run_random` and `advance_run_fuzz_hook` passing; fuzz target `advance_run` in `.github/workflows/fuzz.yml` |
 
 ## Grammar tests

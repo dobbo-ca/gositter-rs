@@ -383,10 +383,11 @@ impl Language {
         }
         row_start[small as usize] = entries.len();
 
-        // First fit, longest rows first: they are the hardest to place. sort_by is stable.
+        // First fit, longest rows first: they are the hardest to place. sort_by_key is stable,
+        // as Go's SortStableFunc.
         let row_len = |st: u32| row_start[st as usize + 1] - row_start[st as usize];
         let mut order: Vec<u32> = (0..small).collect();
-        order.sort_by(|&a, &b| row_len(b).cmp(&row_len(a)));
+        order.sort_by_key(|&st| std::cmp::Reverse(row_len(st)));
 
         let mut base = vec![0u32; small as usize];
         let mut comb = vec![0u32; symbol_count as usize];

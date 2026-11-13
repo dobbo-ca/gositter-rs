@@ -251,7 +251,6 @@ fn small_tree() -> FakeTree {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.3"]
 fn dump_fake_tree() {
     let tree = small_tree();
     let mut out = Vec::new();
@@ -291,7 +290,6 @@ fn chain(n: usize) -> FakeTree {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.3"]
 fn sexp_only_up_to_depth_100() {
     // dump.go:117-123: sexpMaxDepth = 100.
     let at_100 = chain(101);
@@ -333,7 +331,6 @@ fn sexp_only_up_to_depth_100() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.3"]
 fn sampled_rule() {
     // dump.go:52-54.
     for n in [0u32, 1, 256, 257, 1000] {
@@ -348,7 +345,6 @@ fn sampled_rule() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.3"]
 fn go_quote_cases() {
     // Go strconv.Quote. Kind names of the 21 grammars include all of these shapes.
     assert_eq!(go_quote("\""), r#""\"""#);

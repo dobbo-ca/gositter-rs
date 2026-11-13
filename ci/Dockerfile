@@ -23,10 +23,6 @@ RUN cargo fmt --all --check
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target,sharing=private \
     sh ci/fresh.sh && cargo clippy --locked --workspace --all-targets -- -D warnings
-# aarch64-only code (NEON kernels, unsigned C char) is not compiled for x86_64, so lint it too.
-RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/src/target,sharing=private \
-    sh ci/fresh.sh && cargo clippy --locked --workspace --all-targets --target aarch64-unknown-linux-gnu -- -D warnings
 # No C in the build graph: the ban list in deny.toml.
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
     cargo deny --locked check
@@ -45,8 +41,13 @@ FROM qemu-tools AS qemu-arm64
 COPY . .
 RUN find testdata/regress -name '*.dump.gz' -exec gunzip -k {} +
 
-# The full test suite for aarch64 under qemu-user.
+# The aarch64 lint and the full test suite for aarch64 under qemu-user. aarch64-only code (NEON
+# kernels, unsigned C char) is not compiled for x86_64, so it is linted here; this runs on main and
+# on dispatch, not on PRs (gositter-rs-jmw): an aarch64-only clippy error shows up after the merge.
 FROM qemu-arm64 AS arm64
+RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/src/target,sharing=private \
+    sh ci/fresh.sh && cargo clippy --locked --workspace --all-targets --target aarch64-unknown-linux-gnu -- -D warnings
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target,sharing=private \
     sh ci/fresh.sh && cargo test --locked --workspace --target aarch64-unknown-linux-gnu

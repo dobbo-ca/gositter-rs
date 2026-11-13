@@ -27,20 +27,32 @@ impl Tree {
     /// slab (`pool.room(1)` + `bump_children`) so that a Node can address it like any other
     /// subtree.
     pub(crate) fn from_pool(
-        _pool: SubtreePool,
-        _language: &'static Language,
-        _root: Subtree,
+        mut pool: SubtreePool,
+        language: &'static Language,
+        root: Subtree,
     ) -> Tree {
-        todo!("gositter-rs-2f0.10")
+        let off = pool.room(1);
+        let slot = pool.bump_children(off, 1);
+        pool.children[slot as usize] = root;
+        Tree {
+            pool,
+            language: Some(language),
+            root: slot,
+        }
     }
 
     /// ts_tree_root_node
     pub fn root_node(&self) -> Node<'_> {
-        todo!("gositter-rs-2f0.10")
+        Node::node_new(
+            self,
+            self.root,
+            self.pool.padding(self.pool.children[self.root as usize]),
+            0,
+        )
     }
 
     /// ts_tree_language
     pub fn language(&self) -> &'static Language {
-        todo!("gositter-rs-2f0.10")
+        self.language.expect("gositter: tree has no language")
     }
 }

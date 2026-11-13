@@ -342,7 +342,7 @@ impl SubtreePool {
         // Every caller overwrites the whole entry, so a reused slot is not zeroed.
         let n = self.heap_len;
         if n >> HEAP_CHUNK_BITS == self.heap.len() as u32 {
-            if n == u32::MAX & !(HEAP_CHUNK_MASK as u32) {
+            if n == !(HEAP_CHUNK_MASK as u32) {
                 // the last chunk would wrap heap_len
                 panic!("{ERR_SLAB_FULL}");
             }
@@ -2042,8 +2042,7 @@ impl SubtreePool {
         self.tree_stack.push(left);
         self.tree_stack.push(right);
 
-        while !self.tree_stack.is_empty() {
-            let right = self.tree_stack.pop().unwrap();
+        while let Some(right) = self.tree_stack.pop() {
             let left = self.tree_stack.pop().unwrap();
 
             let mut result = 0;

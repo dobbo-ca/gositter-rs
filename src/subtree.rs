@@ -925,7 +925,7 @@ impl SubtreePool {
                 + u32::from((s.0 >> INL_SIZE_BYTES_SHIFT) as u8);
         }
         let h = self.ptr(s);
-        h.padding.bytes + h.size.bytes
+        h.padding.bytes.wrapping_add(h.size.bytes)
     }
 
     /// ts_subtree_child_count
@@ -1319,9 +1319,15 @@ impl SubtreePool {
         }
 
         let (padding, mut size) = (a.padding, a.size);
-        let mut lookahead_end_byte = padding.bytes + size.bytes + a.lookahead_bytes;
+        let mut lookahead_end_byte = padding
+            .bytes
+            .wrapping_add(size.bytes)
+            .wrapping_add(a.lookahead_bytes);
         size = length_add(size, length_add(b.padding, b.size));
-        let e = padding.bytes + size.bytes + b.lookahead_bytes;
+        let e = padding
+            .bytes
+            .wrapping_add(size.bytes)
+            .wrapping_add(b.lookahead_bytes);
         if e > lookahead_end_byte {
             lookahead_end_byte = e;
         }
@@ -1542,7 +1548,10 @@ impl SubtreePool {
                     } else {
                         size = length_add(size, length_add(ch.padding, ch.size));
                     }
-                    let e = padding.bytes + size.bytes + ch.lookahead_bytes;
+                    let e = padding
+                        .bytes
+                        .wrapping_add(size.bytes)
+                        .wrapping_add(ch.lookahead_bytes);
                     if e > lookahead_end_byte {
                         lookahead_end_byte = e;
                     }
@@ -1672,7 +1681,10 @@ impl SubtreePool {
                         size = length_add(size, length_add(c_padding, c_size));
                     }
 
-                    let child_lookahead_end_byte = padding.bytes + size.bytes + c_lookahead_bytes;
+                    let child_lookahead_end_byte = padding
+                        .bytes
+                        .wrapping_add(size.bytes)
+                        .wrapping_add(c_lookahead_bytes);
                     if child_lookahead_end_byte > lookahead_end_byte {
                         lookahead_end_byte = child_lookahead_end_byte;
                     }

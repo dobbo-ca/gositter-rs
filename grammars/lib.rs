@@ -17,6 +17,15 @@ mod csharp_scanner;
 #[path = "hcl/scanner.rs"]
 mod hcl_scanner;
 #[cfg(test)]
+#[path = "javascript/scanner.rs"]
+mod javascript_scanner;
+#[cfg(test)]
+#[path = "julia/scanner.rs"]
+mod julia_scanner;
+#[cfg(test)]
+#[path = "kotlin/scanner.rs"]
+mod kotlin_scanner;
+#[cfg(test)]
 #[path = "lua/scanner.rs"]
 mod lua_scanner;
 #[cfg(test)]
@@ -31,3 +40,9 @@ mod rust_scanner;
 #[cfg(test)]
 #[path = "scala/scanner.rs"]
 mod scala_scanner;
+#[cfg(test)]
+#[path = "tsx/scanner.rs"]
+mod tsx_scanner;
+#[cfg(test)]
+#[path = "typescript/scanner.rs"]
+mod typescript_scanner;

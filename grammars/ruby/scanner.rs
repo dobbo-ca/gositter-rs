@@ -1,11 +1,12 @@
-//! Port of the scanner state of `grammars/ruby/scanner.go` (tree-sitter-ruby v0.23.1
-//! `src/scanner.c`): `new`, `serialize` and `deserialize`. `scan` and the helpers only it uses
-//! (`isw*`, `scan_whitespace`, ...) wait for the runtime `Lexer` (Task 12).
+//! Port of `grammars/ruby/scanner.go` (tree-sitter-ruby v0.23.1 `src/scanner.c`). Statement
+//! order and the advance/mark_end/eof call sequence follow C on every path.
+//!
+//! The wctype calls run in the "C" locale (nothing calls setlocale), where they are ASCII only.
 
 use crate::SERIALIZATION_BUFFER_SIZE;
+use crate::cchar;
 
-// enum TokenType. The tokens `serialize` and the tests do not touch are read by `scan` (Task 12).
-#[allow(dead_code)]
+// enum TokenType
 mod tok {
     pub const LINE_BREAK: u16 = 0;
     pub const NO_LINE_BREAK: u16 = 1;
@@ -163,6 +164,1040 @@ impl Scanner {
             size += 4 + word_length;
         }
     }
+}
+
+/// `char::from_u32` of the lookahead, for `match` on a char literal. -1 (EOF) and anything that
+/// is not a scalar value is `None`.
+fn la(lexer: &gositter::Lexer<'_>) -> Option<char> {
+    char::from_u32(lexer.lookahead as u32)
+}
+
+fn ch(c: char) -> i32 {
+    c as i32
+}
+
+/// iswspace
+fn iswspace(c: i32) -> bool {
+    c == ch(' ') || (ch('\t')..=ch('\r')).contains(&c)
+}
+
+/// iswdigit
+fn iswdigit(c: i32) -> bool {
+    (ch('0')..=ch('9')).contains(&c)
+}
+
+/// iswupper
+fn iswupper(c: i32) -> bool {
+    (ch('A')..=ch('Z')).contains(&c)
+}
+
+/// iswlower
+fn iswlower(c: i32) -> bool {
+    (ch('a')..=ch('z')).contains(&c)
+}
+
+/// iswalpha
+fn iswalpha(c: i32) -> bool {
+    iswupper(c) || iswlower(c)
+}
+
+/// iswalnum
+fn iswalnum(c: i32) -> bool {
+    iswalpha(c) || iswdigit(c)
+}
+
+/// NON_IDENTIFIER_CHARS, indexed by byte.
+fn non_identifier_char(b: u8) -> bool {
+    b"\0\n\r\t :;`\"'@$#.,|^&<=>+-*/\\%?!~()[]{}".contains(&b)
+}
+
+/// `strchr("!@&`'+~=/\\,;.<>*$?:\"", c) != NULL`. strchr also finds the terminating NUL, so 0 is
+/// in the set.
+fn short_interpolation_global(b: u8) -> bool {
+    b"!@&`'+~=/\\,;.<>*$?:\"\0".contains(&b)
+}
+
+/// is_iden_char. C passes (char)lookahead and memchr compares bytes, so only the low byte of the
+/// code point counts (U+0140 is '@' here).
+fn is_iden_char(c: i32) -> bool {
+    !non_identifier_char(c as u8)
+}
+
+/// scan_operator
+fn scan_operator(lexer: &mut gositter::Lexer<'_>) -> bool {
+    match la(lexer) {
+        // <, <=, <<, <=>
+        Some('<') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('<') {
+                lexer.advance(false);
+            } else if lexer.lookahead == ch('=') {
+                lexer.advance(false);
+                if lexer.lookahead == ch('>') {
+                    lexer.advance(false);
+                }
+            }
+            true
+        }
+
+        // >, >=, >>
+        Some('>') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('>') || lexer.lookahead == ch('=') {
+                lexer.advance(false);
+            }
+            true
+        }
+
+        // ==, ===, =~
+        Some('=') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('~') {
+                lexer.advance(false);
+                return true;
+            }
+            if lexer.lookahead == ch('=') {
+                lexer.advance(false);
+                if lexer.lookahead == ch('=') {
+                    lexer.advance(false);
+                }
+                return true;
+            }
+            false
+        }
+
+        // +, -, ~, +@, -@, ~@
+        Some('+' | '-' | '~') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('@') {
+                lexer.advance(false);
+            }
+            true
+        }
+
+        // ..
+        Some('.') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('.') {
+                lexer.advance(false);
+                return true;
+            }
+            false
+        }
+
+        // &, ^, |, /, %`
+        Some('&' | '^' | '|' | '/' | '%' | '`') => {
+            lexer.advance(false);
+            true
+        }
+
+        // !, !=, !~
+        Some('!') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('=') || lexer.lookahead == ch('~') {
+                lexer.advance(false);
+            }
+            true
+        }
+
+        // *, **
+        Some('*') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch('*') {
+                lexer.advance(false);
+            }
+            true
+        }
+
+        // [], []=
+        Some('[') => {
+            lexer.advance(false);
+            if lexer.lookahead == ch(']') {
+                lexer.advance(false);
+            } else {
+                return false;
+            }
+            if lexer.lookahead == ch('=') {
+                lexer.advance(false);
+            }
+            true
+        }
+
+        _ => false,
+    }
+}
+
+/// scan_symbol_identifier
+fn scan_symbol_identifier(lexer: &mut gositter::Lexer<'_>) -> bool {
+    if lexer.lookahead == ch('@') {
+        lexer.advance(false);
+        if lexer.lookahead == ch('@') {
+            lexer.advance(false);
+        }
+    } else if lexer.lookahead == ch('$') {
+        lexer.advance(false);
+    }
+
+    if is_iden_char(lexer.lookahead) {
+        lexer.advance(false);
+    } else if !scan_operator(lexer) {
+        return false;
+    }
+
+    while is_iden_char(lexer.lookahead) {
+        lexer.advance(false);
+    }
+
+    if lexer.lookahead == ch('?') || lexer.lookahead == ch('!') {
+        lexer.advance(false);
+    }
+
+    if lexer.lookahead == ch('=') {
+        lexer.mark_end();
+        lexer.advance(false);
+        if lexer.lookahead != ch('>') {
+            lexer.mark_end();
+        }
+    }
+
+    true
+}
+
+/// scan_heredoc_word. Returns C's `String word` in place of the Heredoc out-param.
+fn scan_heredoc_word(lexer: &mut gositter::Lexer<'_>) -> (Vec<u8>, bool) {
+    let mut word = Vec::new();
+    let mut quote = 0;
+
+    match la(lexer) {
+        Some('\'' | '"' | '`') => {
+            quote = lexer.lookahead;
+            lexer.advance(false);
+            while lexer.lookahead != quote && !lexer.eof() {
+                word.push(lexer.lookahead as u8);
+                lexer.advance(false);
+            }
+            lexer.advance(false);
+        }
+
+        _ => {
+            if iswalnum(lexer.lookahead) || lexer.lookahead == ch('_') {
+                word.push(lexer.lookahead as u8);
+                lexer.advance(false);
+                while iswalnum(lexer.lookahead) || lexer.lookahead == ch('_') {
+                    word.push(lexer.lookahead as u8);
+                    lexer.advance(false);
+                }
+            }
+        }
+    }
+
+    (word, quote != ch('\''))
+}
+
+/// scan_short_interpolation. start is a C char: the '@' and '$' tests see only the low byte of
+/// the code point, and so does strchr.
+fn scan_short_interpolation(
+    lexer: &mut gositter::Lexer<'_>,
+    has_content: bool,
+    content_symbol: u16,
+) -> bool {
+    let start = lexer.lookahead as u8;
+    if start == b'@' || start == b'$' {
+        if has_content {
+            lexer.result_symbol = content_symbol;
+            return true;
+        }
+        lexer.mark_end();
+        lexer.advance(false);
+        let mut is_short_interpolation = false;
+        if start == b'$' {
+            if short_interpolation_global(lexer.lookahead as u8) {
+                is_short_interpolation = true;
+            } else if lexer.lookahead == ch('-') {
+                lexer.advance(false);
+                is_short_interpolation = iswalpha(lexer.lookahead) || lexer.lookahead == ch('_');
+            } else {
+                is_short_interpolation = iswalnum(lexer.lookahead) || lexer.lookahead == ch('_');
+            }
+        }
+        if start == b'@' {
+            if lexer.lookahead == ch('@') {
+                lexer.advance(false);
+            }
+            is_short_interpolation = is_iden_char(lexer.lookahead) && !iswdigit(lexer.lookahead);
+        }
+
+        if is_short_interpolation {
+            lexer.result_symbol = tok::SHORT_INTERPOLATION;
+            return true;
+        }
+    }
+    false
+}
+
+impl Scanner {
+    /// skip
+    fn skip(&mut self, lexer: &mut gositter::Lexer<'_>) {
+        self.has_leading_whitespace = true;
+        lexer.advance(true);
+    }
+
+    /// scan_whitespace
+    fn scan_whitespace(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        let heredoc_body_start_is_valid = !self.open_heredocs.is_empty()
+            && !self.open_heredocs[0].started
+            && valid_symbols[tok::HEREDOC_BODY_START as usize];
+        let mut crossed_newline = false;
+
+        loop {
+            if !valid_symbols[tok::NO_LINE_BREAK as usize]
+                && valid_symbols[tok::LINE_BREAK as usize]
+                && lexer.is_at_included_range_start()
+            {
+                lexer.mark_end();
+                lexer.result_symbol = tok::LINE_BREAK;
+                return true;
+            }
+
+            match la(lexer) {
+                Some(' ' | '\t') => self.skip(lexer),
+                Some('\r') => {
+                    if heredoc_body_start_is_valid {
+                        lexer.result_symbol = tok::HEREDOC_BODY_START;
+                        self.open_heredocs[0].started = true;
+                        return true;
+                    }
+                    self.skip(lexer);
+                }
+                Some('\n') => {
+                    if heredoc_body_start_is_valid {
+                        lexer.result_symbol = tok::HEREDOC_BODY_START;
+                        self.open_heredocs[0].started = true;
+                        return true;
+                    } else if !valid_symbols[tok::NO_LINE_BREAK as usize]
+                        && valid_symbols[tok::LINE_BREAK as usize]
+                        && !crossed_newline
+                    {
+                        lexer.mark_end();
+                        lexer.advance(false);
+                        crossed_newline = true;
+                    } else {
+                        self.skip(lexer);
+                    }
+                }
+                Some('\\') => {
+                    lexer.advance(false);
+                    if lexer.lookahead == ch('\r') {
+                        self.skip(lexer);
+                    }
+                    if iswspace(lexer.lookahead) {
+                        self.skip(lexer);
+                    } else {
+                        return false;
+                    }
+                }
+                _ => {
+                    if crossed_newline {
+                        if lexer.lookahead != ch('.')
+                            && lexer.lookahead != ch('&')
+                            && lexer.lookahead != ch('#')
+                        {
+                            lexer.result_symbol = tok::LINE_BREAK;
+                        } else if lexer.lookahead == ch('.') {
+                            // Don't return LINE_BREAK for the call operator (`.`) but do return one for range
+                            // operators (`..` and `...`)
+                            lexer.advance(false);
+                            if !lexer.eof() && lexer.lookahead == ch('.') {
+                                lexer.result_symbol = tok::LINE_BREAK;
+                            } else {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+
+    /// scan_open_delimiter
+    fn scan_open_delimiter(
+        &mut self,
+        lexer: &mut gositter::Lexer<'_>,
+        literal: &mut Literal,
+        valid_symbols: &[bool],
+    ) -> bool {
+        match la(lexer) {
+            Some('"') => {
+                literal.typ = tok::STRING_START;
+                literal.open_delimiter = lexer.lookahead;
+                literal.close_delimiter = lexer.lookahead;
+                literal.allows_interpolation = true;
+                lexer.advance(false);
+                true
+            }
+
+            Some('\'') => {
+                literal.typ = tok::STRING_START;
+                literal.open_delimiter = lexer.lookahead;
+                literal.close_delimiter = lexer.lookahead;
+                literal.allows_interpolation = false;
+                lexer.advance(false);
+                true
+            }
+
+            Some('`') => {
+                if !valid_symbols[tok::SUBSHELL_START as usize] {
+                    return false;
+                }
+                literal.typ = tok::SUBSHELL_START;
+                literal.open_delimiter = lexer.lookahead;
+                literal.close_delimiter = lexer.lookahead;
+                literal.allows_interpolation = true;
+                lexer.advance(false);
+                true
+            }
+
+            Some('/') => {
+                if !valid_symbols[tok::REGEX_START as usize] {
+                    return false;
+                }
+                literal.typ = tok::REGEX_START;
+                literal.open_delimiter = lexer.lookahead;
+                literal.close_delimiter = lexer.lookahead;
+                literal.allows_interpolation = true;
+                lexer.advance(false);
+                if valid_symbols[tok::FORWARD_SLASH as usize] {
+                    if !self.has_leading_whitespace {
+                        return false;
+                    }
+                    if lexer.lookahead == ch(' ')
+                        || lexer.lookahead == ch('\t')
+                        || lexer.lookahead == ch('\n')
+                        || lexer.lookahead == ch('\r')
+                    {
+                        return false;
+                    }
+                    if lexer.lookahead == ch('=') {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            Some('%') => {
+                lexer.advance(false);
+
+                match la(lexer) {
+                    Some('s') => {
+                        if !valid_symbols[tok::SIMPLE_SYMBOL as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::SYMBOL_START;
+                        literal.allows_interpolation = false;
+                        lexer.advance(false);
+                    }
+
+                    Some('r') => {
+                        if !valid_symbols[tok::REGEX_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::REGEX_START;
+                        literal.allows_interpolation = true;
+                        lexer.advance(false);
+                    }
+
+                    Some('x') => {
+                        if !valid_symbols[tok::SUBSHELL_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::SUBSHELL_START;
+                        literal.allows_interpolation = true;
+                        lexer.advance(false);
+                    }
+
+                    Some('q') => {
+                        if !valid_symbols[tok::STRING_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::STRING_START;
+                        literal.allows_interpolation = false;
+                        lexer.advance(false);
+                    }
+
+                    Some('Q') => {
+                        if !valid_symbols[tok::STRING_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::STRING_START;
+                        literal.allows_interpolation = true;
+                        lexer.advance(false);
+                    }
+
+                    Some('w') => {
+                        if !valid_symbols[tok::STRING_ARRAY_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::STRING_ARRAY_START;
+                        literal.allows_interpolation = false;
+                        lexer.advance(false);
+                    }
+
+                    Some('i') => {
+                        if !valid_symbols[tok::SYMBOL_ARRAY_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::SYMBOL_ARRAY_START;
+                        literal.allows_interpolation = false;
+                        lexer.advance(false);
+                    }
+
+                    Some('W') => {
+                        if !valid_symbols[tok::STRING_ARRAY_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::STRING_ARRAY_START;
+                        literal.allows_interpolation = true;
+                        lexer.advance(false);
+                    }
+
+                    Some('I') => {
+                        if !valid_symbols[tok::SYMBOL_ARRAY_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::SYMBOL_ARRAY_START;
+                        literal.allows_interpolation = true;
+                        lexer.advance(false);
+                    }
+
+                    _ => {
+                        if !valid_symbols[tok::STRING_START as usize] {
+                            return false;
+                        }
+                        literal.typ = tok::STRING_START;
+                        literal.allows_interpolation = true;
+                    }
+                }
+
+                match la(lexer) {
+                    Some('(') => {
+                        literal.open_delimiter = ch('(');
+                        literal.close_delimiter = ch(')');
+                    }
+
+                    Some('[') => {
+                        literal.open_delimiter = ch('[');
+                        literal.close_delimiter = ch(']');
+                    }
+
+                    Some('{') => {
+                        literal.open_delimiter = ch('{');
+                        literal.close_delimiter = ch('}');
+                    }
+
+                    Some('<') => {
+                        literal.open_delimiter = ch('<');
+                        literal.close_delimiter = ch('>');
+                    }
+
+                    Some('\r' | '\n' | ' ' | '\t') => {
+                        // If the `/` operator is valid, then so is the `%` operator, which means
+                        // that a `%` followed by whitespace should be considered an operator,
+                        // not a percent string.
+                        if valid_symbols[tok::FORWARD_SLASH as usize] {
+                            return false;
+                        }
+                        // Both delimiters stay 0 here, as in C: the literal then ends
+                        // at a NUL or at the end of input.
+                    }
+
+                    Some(
+                        '|' | '!' | '#' | '/' | '\\' | '@' | '$' | '%' | '^' | '&' | '*' | ')'
+                        | ']' | '}' | '>' | '+' | '-' | '~' | '`' | ',' | '.' | '?' | ':' | ';'
+                        | '_' | '"' | '\'',
+                    ) => {
+                        literal.open_delimiter = lexer.lookahead;
+                        literal.close_delimiter = lexer.lookahead;
+                    }
+                    _ => return false,
+                }
+
+                lexer.advance(false);
+                true
+            }
+
+            _ => false,
+        }
+    }
+
+    /// scan_heredoc_content
+    fn scan_heredoc_content(&mut self, lexer: &mut gositter::Lexer<'_>) -> bool {
+        let mut position_in_word = 0;
+        let mut look_for_heredoc_end = true;
+        let mut has_content = false;
+
+        loop {
+            if position_in_word == self.open_heredocs[0].word.len() {
+                if !has_content {
+                    lexer.mark_end();
+                }
+                while lexer.lookahead == ch(' ') || lexer.lookahead == ch('\t') {
+                    lexer.advance(false);
+                }
+                if lexer.lookahead == ch('\n') || lexer.lookahead == ch('\r') {
+                    if has_content {
+                        lexer.result_symbol = tok::HEREDOC_CONTENT;
+                    } else {
+                        self.erase_first_heredoc();
+                        lexer.result_symbol = tok::HEREDOC_BODY_END;
+                    }
+                    return true;
+                }
+                has_content = true;
+                position_in_word = 0;
+            }
+
+            if lexer.eof() {
+                lexer.mark_end();
+                if has_content {
+                    lexer.result_symbol = tok::HEREDOC_CONTENT;
+                } else {
+                    self.erase_first_heredoc();
+                    lexer.result_symbol = tok::HEREDOC_BODY_END;
+                }
+                return true;
+            }
+
+            // The word is an Array(char). Where char is signed a byte >= 0x80 compares as
+            // negative: 0xFF equals the -1 of an invalid UTF-8 byte and nothing else matches.
+            // Where it is unsigned (linux/arm64) 0x80..0xFF equal U+0080..U+00FF.
+            // A word is never empty (serialize and the scan of the word see to it), so the index
+            // is in range as C asserts.
+            if lexer.lookahead == cchar::value(self.open_heredocs[0].word[position_in_word])
+                && look_for_heredoc_end
+            {
+                lexer.advance(false);
+                position_in_word += 1;
+            } else {
+                position_in_word = 0;
+                look_for_heredoc_end = false;
+
+                if self.open_heredocs[0].allows_interpolation && lexer.lookahead == ch('\\') {
+                    if has_content {
+                        lexer.result_symbol = tok::HEREDOC_CONTENT;
+                        return true;
+                    }
+                    return false;
+                }
+
+                if self.open_heredocs[0].allows_interpolation && lexer.lookahead == ch('#') {
+                    lexer.mark_end();
+                    lexer.advance(false);
+                    if lexer.lookahead == ch('{') {
+                        if has_content {
+                            lexer.result_symbol = tok::HEREDOC_CONTENT;
+                            return true;
+                        }
+                        return false;
+                    }
+                    if scan_short_interpolation(lexer, has_content, tok::HEREDOC_CONTENT) {
+                        return true;
+                    }
+                } else if lexer.lookahead == ch('\r') || lexer.lookahead == ch('\n') {
+                    if lexer.lookahead == ch('\r') {
+                        lexer.advance(false);
+                        if lexer.lookahead == ch('\n') {
+                            lexer.advance(false);
+                        }
+                    } else {
+                        lexer.advance(false);
+                    }
+                    has_content = true;
+                    look_for_heredoc_end = true;
+                    while lexer.lookahead == ch(' ') || lexer.lookahead == ch('\t') {
+                        lexer.advance(false);
+                        if !self.open_heredocs[0].end_word_indentation_allowed {
+                            look_for_heredoc_end = false;
+                        }
+                    }
+                    lexer.mark_end();
+                } else {
+                    has_content = true;
+                    lexer.advance(false);
+                    lexer.mark_end();
+                }
+            }
+        }
+    }
+
+    /// scan_literal_content
+    fn scan_literal_content(&mut self, lexer: &mut gositter::Lexer<'_>) -> bool {
+        // `literal` is C's pointer to the top of the stack; only nesting_depth changes, and the
+        // pop is followed by a return.
+        let top = self.literal_stack.len() - 1;
+        let typ = self.literal_stack[top].typ;
+        let open_delimiter = self.literal_stack[top].open_delimiter;
+        let close_delimiter = self.literal_stack[top].close_delimiter;
+        let allows_interpolation = self.literal_stack[top].allows_interpolation;
+        let mut has_content = false;
+        let stop_on_space = typ == tok::SYMBOL_ARRAY_START || typ == tok::STRING_ARRAY_START;
+
+        loop {
+            if stop_on_space && iswspace(lexer.lookahead) {
+                if has_content {
+                    lexer.mark_end();
+                    lexer.result_symbol = tok::STRING_CONTENT;
+                    return true;
+                }
+                return false;
+            }
+            if lexer.lookahead == close_delimiter {
+                lexer.mark_end();
+                if self.literal_stack[top].nesting_depth == 1 {
+                    if has_content {
+                        lexer.result_symbol = tok::STRING_CONTENT;
+                    } else {
+                        lexer.advance(false);
+                        if typ == tok::REGEX_START {
+                            while iswlower(lexer.lookahead) {
+                                lexer.advance(false);
+                            }
+                        }
+                        self.literal_stack.pop();
+                        lexer.result_symbol = tok::STRING_END;
+                        lexer.mark_end();
+                    }
+                    return true;
+                }
+                self.literal_stack[top].nesting_depth -= 1;
+                lexer.advance(false);
+            } else if lexer.lookahead == open_delimiter {
+                self.literal_stack[top].nesting_depth += 1;
+                lexer.advance(false);
+            } else if allows_interpolation && lexer.lookahead == ch('#') {
+                lexer.mark_end();
+                lexer.advance(false);
+                if lexer.lookahead == ch('{') {
+                    if has_content {
+                        lexer.result_symbol = tok::STRING_CONTENT;
+                        return true;
+                    }
+                    return false;
+                }
+                if scan_short_interpolation(lexer, has_content, tok::STRING_CONTENT) {
+                    return true;
+                }
+            } else if lexer.lookahead == ch('\\') {
+                if allows_interpolation {
+                    if has_content {
+                        lexer.mark_end();
+                        lexer.result_symbol = tok::STRING_CONTENT;
+                        return true;
+                    }
+                    return false;
+                }
+                lexer.advance(false);
+                lexer.advance(false);
+            } else if lexer.eof() {
+                lexer.advance(false);
+                lexer.mark_end();
+                return false;
+            } else {
+                lexer.advance(false);
+            }
+
+            has_content = true;
+        }
+    }
+}
+
+impl gositter::ExternalScanner for Scanner {
+    /// scan / tree_sitter_ruby_external_scanner_scan
+    fn scan(&mut self, lexer: &mut gositter::Lexer<'_>, valid_symbols: &[bool]) -> bool {
+        self.has_leading_whitespace = false;
+
+        // Contents of literals, which match any character except for some close delimiter
+        if !valid_symbols[tok::STRING_START as usize] {
+            if (valid_symbols[tok::STRING_CONTENT as usize]
+                || valid_symbols[tok::STRING_END as usize])
+                && !self.literal_stack.is_empty()
+            {
+                return self.scan_literal_content(lexer);
+            }
+            if (valid_symbols[tok::HEREDOC_CONTENT as usize]
+                || valid_symbols[tok::HEREDOC_BODY_END as usize])
+                && !self.open_heredocs.is_empty()
+            {
+                return self.scan_heredoc_content(lexer);
+            }
+        }
+
+        // Whitespace
+        lexer.result_symbol = tok::NONE;
+        if !self.scan_whitespace(lexer, valid_symbols) {
+            return false;
+        }
+        if lexer.result_symbol != tok::NONE {
+            return true;
+        }
+
+        match la(lexer) {
+            Some('&') if valid_symbols[tok::BLOCK_AMPERSAND as usize] => {
+                lexer.advance(false);
+                if lexer.lookahead != ch('&')
+                    && lexer.lookahead != ch('.')
+                    && lexer.lookahead != ch('=')
+                    && !iswspace(lexer.lookahead)
+                {
+                    lexer.result_symbol = tok::BLOCK_AMPERSAND;
+                    return true;
+                }
+                return false;
+            }
+
+            Some('<') if valid_symbols[tok::SINGLETON_CLASS_LEFT_ANGLE_LEFT_ANGLE as usize] => {
+                lexer.advance(false);
+                if lexer.lookahead == ch('<') {
+                    lexer.advance(false);
+                    lexer.result_symbol = tok::SINGLETON_CLASS_LEFT_ANGLE_LEFT_ANGLE;
+                    return true;
+                }
+                return false;
+            }
+
+            Some('*')
+                if valid_symbols[tok::SPLAT_STAR as usize]
+                    || valid_symbols[tok::BINARY_STAR as usize]
+                    || valid_symbols[tok::HASH_SPLAT_STAR_STAR as usize]
+                    || valid_symbols[tok::BINARY_STAR_STAR as usize] =>
+            {
+                lexer.advance(false);
+                if lexer.lookahead == ch('=') {
+                    return false;
+                }
+                if lexer.lookahead == ch('*') {
+                    if valid_symbols[tok::HASH_SPLAT_STAR_STAR as usize]
+                        || valid_symbols[tok::BINARY_STAR_STAR as usize]
+                    {
+                        lexer.advance(false);
+                        if lexer.lookahead == ch('=') {
+                            return false;
+                        }
+                        if valid_symbols[tok::BINARY_STAR_STAR as usize]
+                            && !self.has_leading_whitespace
+                        {
+                            lexer.result_symbol = tok::BINARY_STAR_STAR;
+                            return true;
+                        }
+                        if valid_symbols[tok::HASH_SPLAT_STAR_STAR as usize]
+                            && !iswspace(lexer.lookahead)
+                        {
+                            lexer.result_symbol = tok::HASH_SPLAT_STAR_STAR;
+                            return true;
+                        }
+                        if valid_symbols[tok::BINARY_STAR_STAR as usize] {
+                            lexer.result_symbol = tok::BINARY_STAR_STAR;
+                            return true;
+                        }
+                        if valid_symbols[tok::HASH_SPLAT_STAR_STAR as usize] {
+                            lexer.result_symbol = tok::HASH_SPLAT_STAR_STAR;
+                            return true;
+                        }
+                        return false;
+                    }
+                    return false;
+                }
+                if valid_symbols[tok::BINARY_STAR as usize] && !self.has_leading_whitespace {
+                    lexer.result_symbol = tok::BINARY_STAR;
+                    return true;
+                }
+                if valid_symbols[tok::SPLAT_STAR as usize] && !iswspace(lexer.lookahead) {
+                    lexer.result_symbol = tok::SPLAT_STAR;
+                    return true;
+                }
+                if valid_symbols[tok::BINARY_STAR as usize] {
+                    lexer.result_symbol = tok::BINARY_STAR;
+                    return true;
+                }
+                if valid_symbols[tok::SPLAT_STAR as usize] {
+                    lexer.result_symbol = tok::SPLAT_STAR;
+                    return true;
+                }
+                return false;
+            }
+
+            Some('-')
+                if valid_symbols[tok::UNARY_MINUS as usize]
+                    || valid_symbols[tok::UNARY_MINUS_NUM as usize]
+                    || valid_symbols[tok::BINARY_MINUS as usize] =>
+            {
+                lexer.advance(false);
+                if lexer.lookahead != ch('=') && lexer.lookahead != ch('>') {
+                    if valid_symbols[tok::UNARY_MINUS_NUM as usize]
+                        && (!valid_symbols[tok::BINARY_STAR as usize]
+                            || self.has_leading_whitespace)
+                        && iswdigit(lexer.lookahead)
+                    {
+                        lexer.result_symbol = tok::UNARY_MINUS_NUM;
+                        return true;
+                    }
+                    if valid_symbols[tok::UNARY_MINUS as usize]
+                        && self.has_leading_whitespace
+                        && !iswspace(lexer.lookahead)
+                    {
+                        lexer.result_symbol = tok::UNARY_MINUS;
+                    } else if valid_symbols[tok::BINARY_MINUS as usize] {
+                        lexer.result_symbol = tok::BINARY_MINUS;
+                    } else {
+                        lexer.result_symbol = tok::UNARY_MINUS;
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            Some(':') if valid_symbols[tok::SYMBOL_START as usize] => {
+                let mut literal = Literal {
+                    typ: tok::SYMBOL_START,
+                    nesting_depth: 1,
+                    ..Literal::default()
+                };
+                lexer.advance(false);
+
+                match la(lexer) {
+                    Some('"') => {
+                        lexer.advance(false);
+                        literal.open_delimiter = ch('"');
+                        literal.close_delimiter = ch('"');
+                        literal.allows_interpolation = true;
+                        self.literal_stack.push(literal);
+                        lexer.result_symbol = tok::SYMBOL_START;
+                        return true;
+                    }
+
+                    Some('\'') => {
+                        lexer.advance(false);
+                        literal.open_delimiter = ch('\'');
+                        literal.close_delimiter = ch('\'');
+                        literal.allows_interpolation = false;
+                        self.literal_stack.push(literal);
+                        lexer.result_symbol = tok::SYMBOL_START;
+                        return true;
+                    }
+
+                    _ => {
+                        if scan_symbol_identifier(lexer) {
+                            lexer.result_symbol = tok::SIMPLE_SYMBOL;
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            // Treat a square bracket as an element reference if either:
+            // * the bracket is not preceded by any whitespace
+            // * an arbitrary expression is not valid at the current position.
+            Some('[')
+                if valid_symbols[tok::ELEMENT_REFERENCE_BRACKET as usize]
+                    && (!self.has_leading_whitespace
+                        || !valid_symbols[tok::STRING_START as usize]) =>
+            {
+                lexer.advance(false);
+                lexer.result_symbol = tok::ELEMENT_REFERENCE_BRACKET;
+                return true;
+            }
+
+            _ => {}
+        }
+
+        // Open delimiters for literals
+        if ((valid_symbols[tok::HASH_KEY_SYMBOL as usize]
+            || valid_symbols[tok::IDENTIFIER_SUFFIX as usize])
+            && (iswalpha(lexer.lookahead) || lexer.lookahead == ch('_')))
+            || (valid_symbols[tok::CONSTANT_SUFFIX as usize] && iswupper(lexer.lookahead))
+        {
+            let mut valid_identifier_symbol = tok::IDENTIFIER_SUFFIX;
+            if iswupper(lexer.lookahead) {
+                valid_identifier_symbol = tok::CONSTANT_SUFFIX;
+            }
+            while iswalnum(lexer.lookahead) || lexer.lookahead == ch('_') {
+                lexer.advance(false);
+            }
+
+            if valid_symbols[tok::HASH_KEY_SYMBOL as usize] && lexer.lookahead == ch(':') {
+                lexer.mark_end();
+                lexer.advance(false);
+                if lexer.lookahead != ch(':') {
+                    lexer.result_symbol = tok::HASH_KEY_SYMBOL;
+                    return true;
+                }
+            } else if valid_symbols[valid_identifier_symbol as usize] && lexer.lookahead == ch('!')
+            {
+                lexer.advance(false);
+                if lexer.lookahead != ch('=') {
+                    lexer.result_symbol = valid_identifier_symbol;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Open delimiters for literals
+        if valid_symbols[tok::STRING_START as usize] {
+            let mut literal = Literal {
+                nesting_depth: 1,
+                ..Literal::default()
+            };
+
+            if lexer.lookahead == ch('<') {
+                lexer.advance(false);
+                if lexer.lookahead != ch('<') {
+                    return false;
+                }
+                lexer.advance(false);
+
+                let mut hd = Heredoc::default();
+                if lexer.lookahead == ch('-') || lexer.lookahead == ch('~') {
+                    lexer.advance(false);
+                    hd.end_word_indentation_allowed = true;
+                }
+
+                (hd.word, hd.allows_interpolation) = scan_heredoc_word(lexer);
+                if hd.word.is_empty() {
+                    return false;
+                }
+                self.open_heredocs.push(hd);
+                lexer.result_symbol = tok::HEREDOC_START;
+                return true;
+            }
+
+            if self.scan_open_delimiter(lexer, &mut literal, valid_symbols) {
+                let typ = literal.typ;
+                self.literal_stack.push(literal);
+                lexer.result_symbol = typ;
+                return true;
+            }
+            return false;
+        }
+
+        false
+    }
+
+    fn serialize(&self, buf: &mut [u8; gositter::SERIALIZATION_BUFFER_SIZE]) -> usize {
+        Scanner::serialize(self, buf)
+    }
+
+    fn deserialize(&mut self, buf: &[u8]) {
+        Scanner::deserialize(self, buf)
+    }
+}
+
+#[allow(dead_code)] // used by the generated language() (Task 10)
+pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
+    Box::new(Scanner::new())
 }
 
 #[cfg(test)]

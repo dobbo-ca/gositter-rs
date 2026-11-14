@@ -15,6 +15,8 @@ pub mod c;
 #[rustfmt::skip]
 pub mod cpp;
 #[rustfmt::skip]
+pub mod csharp;
+#[rustfmt::skip]
 pub mod golang;
 #[rustfmt::skip]
 pub mod java;
@@ -22,6 +24,10 @@ pub mod java;
 pub mod javascript;
 #[rustfmt::skip]
 pub mod json;
+#[rustfmt::skip]
+pub mod julia;
+#[rustfmt::skip]
+pub mod kotlin;
 #[rustfmt::skip]
 pub mod python;
 #[rustfmt::skip]
@@ -39,17 +45,8 @@ pub mod zig;
 pub const SERIALIZATION_BUFFER_SIZE: usize = 1024;
 
 #[cfg(test)]
-#[path = "csharp/scanner.rs"]
-mod csharp_scanner;
-#[cfg(test)]
 #[path = "hcl/scanner.rs"]
 mod hcl_scanner;
-#[cfg(test)]
-#[path = "julia/scanner.rs"]
-mod julia_scanner;
-#[cfg(test)]
-#[path = "kotlin/scanner.rs"]
-mod kotlin_scanner;
 #[cfg(test)]
 #[path = "lua/scanner.rs"]
 mod lua_scanner;

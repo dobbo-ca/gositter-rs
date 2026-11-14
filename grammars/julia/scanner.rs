@@ -257,7 +257,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }
@@ -285,27 +284,24 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // scanner_test.go TestLanguageWiresScanner
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn language_wires_scanner() {
         assert!(
-            language().tables.external_scanner.create.is_some(),
+            super::super::language()
+                .tables
+                .external_scanner
+                .create
+                .is_some(),
             "ExternalScanner.New is nil: rerun grammars/gen.sh julia"
         );
     }
 
     // scanner_test.go TestParseScannerTokens
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn parse_scanner_tokens() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         let src = "#= a #= b =# c =#\nf(x) = \"a$(x)b\" * raw\"\\\"q\" * `ls $x` * \"\"\"t \"u\" \"\"\"\n";
         let tree = p.parse(src.as_bytes()).unwrap();
         let got = tree.root_node().to_sexp();

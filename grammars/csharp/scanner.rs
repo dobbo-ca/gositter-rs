@@ -3,8 +3,7 @@
 
 use crate::SERIALIZATION_BUFFER_SIZE;
 
-// enum TokenType. Only `scan` reads these.
-#[allow(dead_code)]
+// enum TokenType.
 mod tok {
     pub const OPT_SEMI: u16 = 0;
     pub const INTERPOLATION_REGULAR_START: u16 = 1;
@@ -458,7 +457,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }
@@ -580,17 +578,11 @@ mod tests {
 
 #[cfg(test)]
 mod parser_tests {
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     // Parses through the scanner and checks the state left behind.
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn scan_state() {
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         for (src, want) in [
             (r#"var s = $"a{b}c";"#, "interpolated_string_expression"),
             (r#"var s = $@"a""{b}c";"#, "interpolated_string_expression"),

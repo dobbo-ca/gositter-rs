@@ -410,7 +410,6 @@ fn stall_of(lang: &'static Language, src: &[u8]) -> u32 {
 // 1.4 GB with no limit. The stop must leave nothing behind, in this parser
 // or in the heap chunks it hands to the others.
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn parse_budget_stops() {
     common::run_on_big_stack(|| {
         let stuck = b"@testset \"t0\" begin\n    @testset \"t1\" begin\n        l2";
@@ -534,7 +533,6 @@ fn budget_count_stable(name: &str, lang: &'static Language, src: &[u8]) {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn parse_budget_count_stable() {
     common::run_on_big_stack(|| {
         // 17924: the count grows with the input, 8.5 per byte from here.

@@ -39,7 +39,7 @@ fn dense_lookup_wired() {
         "bash",
         "c",
         "cpp",
-        "csharp",
+        "c-sharp",
         "go",
         "java",
         "javascript",

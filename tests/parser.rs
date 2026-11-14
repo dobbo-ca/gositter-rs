@@ -281,7 +281,6 @@ fn error_recovery_memory_json() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn error_recovery_memory() {
     common::run_on_big_stack(|| {
         let cases: [(&str, &str, String, usize); 21] = [

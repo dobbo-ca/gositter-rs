@@ -31,34 +31,7 @@ fn dense_lookup_json() {
     assert!(errs.is_empty(), "{}", errs.join("\n"));
 }
 
-/// The wired grammars one by one; `dense_lookup` covers all 21 once every grammar is wired.
 #[test]
-fn dense_lookup_wired() {
-    let mut errs = Vec::new();
-    for dir in [
-        "bash",
-        "c",
-        "cpp",
-        "c-sharp",
-        "go",
-        "java",
-        "javascript",
-        "julia",
-        "kotlin",
-        "python",
-        "rust",
-        "tsx",
-        "typescript",
-        "verilog",
-        "zig",
-    ] {
-        dense_lookup_of(&mut errs, dir);
-    }
-    assert!(errs.is_empty(), "{}", errs.join("\n"));
-}
-
-#[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn dense_lookup() {
     let mut errs = Vec::new();
     for dir in common::DIRS {

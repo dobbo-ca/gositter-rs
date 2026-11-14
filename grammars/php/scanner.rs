@@ -3,8 +3,7 @@
 
 use crate::SERIALIZATION_BUFFER_SIZE;
 
-// enum TokenType. Only `scan` reads these.
-#[allow(dead_code)]
+// enum TokenType.
 mod tok {
     pub const AUTOMATIC_SEMICOLON: u16 = 0;
     pub const ENCAPSED_STRING_CHARS: u16 = 1;
@@ -542,7 +541,6 @@ impl gositter::ExternalScanner for Scanner {
     }
 }
 
-#[allow(dead_code)] // used by the generated language() (Task 10)
 pub(crate) fn new() -> Box<dyn gositter::ExternalScanner> {
     Box::new(Scanner::new())
 }

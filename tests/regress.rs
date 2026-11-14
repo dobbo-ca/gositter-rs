@@ -1,6 +1,6 @@
 //! The regress corpus: 1,423 cases with the C runtime's dump of each (gositter
 //! `regress_test.go`): the corpus that CI unzips, and the replay of each case against its
-//! dump (ignored until the parser and the grammars land, plan Tasks 11 and 15).
+//! dump for all 21 grammars.
 
 mod common;
 
@@ -189,34 +189,21 @@ regress_wired! {
     regress_cpp => "cpp",
     regress_c_sharp => "c-sharp",
     regress_go => "go",
+    regress_hcl => "hcl",
     regress_java => "java",
     regress_javascript => "javascript",
     regress_julia => "julia",
     regress_kotlin => "kotlin",
+    regress_lua => "lua",
+    regress_php => "php",
     regress_python => "python",
+    regress_ruby => "ruby",
     regress_rust => "rust",
+    regress_scala => "scala",
     regress_tsx => "tsx",
     regress_typescript => "typescript",
     regress_verilog => "verilog",
     regress_zig => "zig",
-}
-
-macro_rules! regress_tests {
-    ($($name:ident => $dir:literal,)*) => {$(
-        #[test]
-        #[ignore = "gositter-rs-2f0.15"]
-        fn $name() {
-            regress($dir);
-        }
-    )*};
-}
-
-regress_tests! {
-    regress_hcl => "hcl",
-    regress_lua => "lua",
-    regress_php => "php",
-    regress_ruby => "ruby",
-    regress_scala => "scala",
 }
 
 /// Checks the summaries of the last tree of `p` and adds the counts to `sum`.
@@ -269,7 +256,6 @@ fn summaries_json() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn summaries() {
     summaries_of(vec![
         ("c define", "c", "#define A( ".repeat(400)),
@@ -449,7 +435,6 @@ fn children_wide_json() {
 }
 
 #[test]
-#[ignore = "gositter-rs-2f0.15"]
 fn children_wide() {
     children_wide_of(&["rust", "tsx", "typescript"]);
 }

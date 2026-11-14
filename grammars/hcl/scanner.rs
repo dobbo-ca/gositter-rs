@@ -526,11 +526,6 @@ mod parser_tests {
     use super::Scanner;
     use super::tests::check_reset;
 
-    /// The grammar's generated language() (grammars plan Task 10, bead gositter-rs-vjz.10). The tests below are ignored until then.
-    fn language() -> &'static gositter::Language {
-        unimplemented!("gositter-rs-vjz.10: generated language()")
-    }
-
     pub(super) const RESET_INPUTS: [&str; 9] = [
         "",
         "a = 1\n",
@@ -546,16 +541,15 @@ mod parser_tests {
     // B parsed after A on one parser has the tree of B on a fresh parser.
     // TestReusedScannerSameTree (reset_test.go)
     #[test]
-    #[ignore = "gositter-rs-vjz.12"]
     fn reused_scanner_same_tree() {
         let mut reused = gositter::Parser::new();
-        reused.set_language(language()).unwrap();
+        reused.set_language(super::super::language()).unwrap();
         for a in RESET_INPUTS {
             for b in RESET_INPUTS {
                 reused.parse(a.as_bytes());
                 let got = reused.parse(b.as_bytes()).unwrap().root_node().to_sexp();
                 let mut fresh = gositter::Parser::new();
-                fresh.set_language(language()).unwrap();
+                fresh.set_language(super::super::language()).unwrap();
                 let want = fresh.parse(b.as_bytes()).unwrap().root_node().to_sexp();
                 assert_eq!(got, want, "{b:?} after {a:?}");
             }
@@ -572,11 +566,10 @@ mod parser_tests {
     // read back with kept_scanner, and a clone is reset since the borrow is shared.
     // Vec equality ignores capacity, so Go's `norm` is not needed.
     #[test]
-    #[ignore = "gositter-rs-2f0.11"]
     fn reset_is_new() {
         let mut dirty = 0;
         let mut p = gositter::Parser::new();
-        p.set_language(language()).unwrap();
+        p.set_language(super::super::language()).unwrap();
         for input in RESET_INPUTS {
             for budget in [0u32, 1] {
                 p.reset();
@@ -601,14 +594,13 @@ mod parser_tests {
     // their buffers; a Vec keeps no readable spare slots, so the Vec and the buffers of its
     // elements are counted.
     #[test]
-    #[ignore = "gositter-rs-2f0.11"]
     fn reset_drops_big_buffers() {
         for input in [
             "a = \"${b(\"${".repeat(20000),
             format!("a = <<{}\nbody\n", "A".repeat(2_000_000)),
         ] {
             let mut p = gositter::Parser::new();
-            p.set_language(language()).unwrap();
+            p.set_language(super::super::language()).unwrap();
             p.parse(input.as_bytes());
             p.parse(b"a = 1\n");
             let k = kept(&p);

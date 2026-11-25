@@ -1,4 +1,4 @@
-# CI image: Rust runs here, on the in-cluster BuildKit, because the ARC runner has no toolchain.
+# CI image: Rust runs here, in BuildKit on the GitHub-hosted runner, so the toolchain is pinned.
 # Copied from dobbo-ca/deflate-rs ci/Dockerfile. Every tool is installed before `COPY . .`, so a
 # new commit does not install it again.
 FROM rust:1.99.1-bookworm AS toolchain

@@ -3,28 +3,25 @@ on: { pull_request: {}, push: { branches: [main] }, workflow_dispatch: {} }
 permissions:
   contents: read
 # One group per ref (as graphify-rs PR #28). Main pushes share a group without cancel: a started
-# main run always finishes, and GitHub keeps only the newest pending one, so the main backlog on
-# the shared ARC runners cannot grow. A PR run cancels its older run. A bead closes on any green
-# main run at or after its commit.
+# main run always finishes, and GitHub keeps only the newest pending one, so the main backlog cannot
+# grow. A PR run cancels its older run. A bead closes on any green main run at or after its commit.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  # The checks run inside ci/Dockerfile on the in-cluster BuildKit (pattern from dobbo-ca/deflate-rs).
+  # The checks run inside ci/Dockerfile with BuildKit on GitHub-hosted runners (pattern from
+  # dobbo-ca/deflate-rs).
   # A PR needs only `test`; arm64, parity and parity-arm64 (plan Task 12) run on main and on
   # workflow_dispatch. A bead is done only when the main stages are green.
   test:
-    runs-on: github-arc-runner-set
-    # Every cargo step rebuilds the workspace (ci/fresh.sh) and waits for the locked target
-    # cache, so a busy runner set needs more than 30 minutes (gositter-rs-jmw).
+    runs-on: ubuntu-latest
+    # Every cargo step rebuilds the workspace (ci/fresh.sh), so a run needs more than 30 minutes
+    # (gositter-rs-jmw).
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { lfs: false }
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-        with:
-          driver: remote
-          endpoint: tcp://buildkitd.github-arc.svc.cluster.local:1234
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -37,15 +34,12 @@ jobs:
 
   arm64:
     if: github.event_name != 'pull_request'
-    runs-on: github-arc-runner-set
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { lfs: false }
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-        with:
-          driver: remote
-          endpoint: tcp://buildkitd.github-arc.svc.cluster.local:1234
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -58,15 +52,12 @@ jobs:
 
   parity:
     if: github.event_name != 'pull_request'
-    runs-on: github-arc-runner-set
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { lfs: false }
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-        with:
-          driver: remote
-          endpoint: tcp://buildkitd.github-arc.svc.cluster.local:1234
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -79,15 +70,12 @@ jobs:
 
   parity-arm64:
     if: github.event_name != 'pull_request'
-    runs-on: github-arc-runner-set
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { lfs: false }
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-        with:
-          driver: remote
-          endpoint: tcp://buildkitd.github-arc.svc.cluster.local:1234
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .

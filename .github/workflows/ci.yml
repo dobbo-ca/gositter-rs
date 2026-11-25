@@ -15,8 +15,7 @@ jobs:
   # workflow_dispatch. A bead is done only when the main stages are green.
   test:
     runs-on: ubuntu-latest
-    # Every cargo step rebuilds the workspace (ci/fresh.sh), so a run needs more than 30 minutes
-    # (gositter-rs-jmw).
+    # Kept at 60 minutes as headroom (gositter-rs-jmw).
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

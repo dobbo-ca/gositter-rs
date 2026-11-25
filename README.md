@@ -31,12 +31,12 @@ None.
 |---|---|---|
 | Repos private | Public | Owner decision, 2026-11-12. |
 | Tracked in the rust-ports checklist | Tracked in this repo's beads | Owner decision: rust-ports is for image libraries only. |
-| CI on ARC only | ARC, plus GitHub-hosted macOS for darwin test and release jobs (from P2) | ARC is Linux only and darwin binaries ship. |
+| CI on ARC only | GitHub-hosted runners (Linux; macOS for darwin test and release jobs from P2) | Owner decision, 2026-11-24; darwin binaries ship. |
 | No C in the build graph | fuzz/ uses libfuzzer-sys (builds libFuzzer with cc) | test tool only, own workspace, never linked into gositter; same as dobbo-ca/deflate-rs |
 
 ## Building
 
-CI builds everything: see `ci/Dockerfile` and `.github/workflows/ci.yml` (BuildKit on the ARC runners). A PR needs the `test` job; `arm64` runs on main.
+CI builds everything: see `ci/Dockerfile` and `.github/workflows/ci.yml` (BuildKit on GitHub-hosted runners). A PR needs the `test` job; `arm64` runs on main.
 
 ## Issue tracking
 
